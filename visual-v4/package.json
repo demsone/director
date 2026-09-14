@@ -1,0 +1,1 @@
+{"name":"director-v4-visual","private":true,"type":"module","scripts":{"build":"node scripts/build.mjs","start":"node serve.mjs","check":"node --check scripts/build.mjs && node --check preview.js && node --check serve.mjs"}}
