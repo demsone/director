@@ -4,7 +4,11 @@ This is the functional v4 layer. The approved visual baseline is separately reta
 
 ## Run
 
-From `/Users/diego/myapps/Director`:
+Double-click [Director v4.command](/Users/diego/myapps/Director/Director%20v4.command) in Finder. On the first run it may take a moment to install the already-listed local dependencies; it then opens the functional application at `http://127.0.0.1:5173/`.
+
+The command behind it is [command.launcher](/Users/diego/myapps/Director/command.launcher). The approved static reference remains independently available through [Director v4 Visual Review.command](/Users/diego/myapps/Director/Director%20v4%20Visual%20Review.command).
+
+To launch from a terminal instead:
 
 ```sh
 npm run dev
