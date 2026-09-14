@@ -1,21 +1,21 @@
 #!/bin/zsh
-# Starts the functional Director v4 app without requiring a terminal command.
+# Starts the approved Astra Director v4 interface without requiring a terminal command.
 set -eu
 
 ROOT="${0:A:h}"
-PORT=5173
+PORT=4184
 URL="http://127.0.0.1:${PORT}"
-LOG="${TMPDIR:-/tmp}/director-v4-functional.log"
+LOG="${TMPDIR:-/tmp}/director-v4.log"
 
 cd "$ROOT"
 
-if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-  print 'Director v4 needs Node.js and npm. Install Node.js, then open this file again.'
+if ! command -v node >/dev/null 2>&1; then
+  print 'Director v4 needs Node.js. Install Node.js, then open this file again.'
   exit 1
 fi
 
 is_director_running() {
-  curl --max-time 1 -fsS "$URL" 2>/dev/null | grep -Fq '<title>Director v4</title>'
+  [[ "$(curl --max-time 1 -fsS "$URL/__director_v4" 2>/dev/null || true)" == 'director-v4-feedback-new-v1' ]]
 }
 
 if ! is_director_running; then
@@ -24,12 +24,7 @@ if ! is_director_running; then
     exit 1
   fi
 
-  if [[ ! -x node_modules/.bin/vite ]]; then
-    print 'Installing Director v4 dependencies for the first launch…'
-    npm ci
-  fi
-
-  nohup npm run dev -- --host 127.0.0.1 --port "$PORT" --strictPort >"$LOG" 2>&1 < /dev/null &
+  nohup node "$ROOT/visual-v4/serve.mjs" >"$LOG" 2>&1 < /dev/null &
 
   for attempt in {1..50}; do
     if is_director_running; then break; fi

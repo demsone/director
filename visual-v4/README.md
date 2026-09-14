@@ -4,7 +4,7 @@ Open **Director v4.command** in the parent Director folder, or run `command.laun
 
 The build contains 27 review views covering all supplied product states, the three explicitly directed Design Studio clones, and the complete prompt-editor reference. Read all 25 source contracts in [source/BUILD-CONTRACTS.md](source/BUILD-CONTRACTS.md).
 
-This is the visual approval stage. Navigation links and temporary prompt-text editing support inspection. Model actions, connection tests, saves, deletes and persistence are inactive. Sample status, models, titles, text and cards are visual fixtures. No existing Director data is read or changed.
+The current corrective scope is only `feedback-new.html`: its exact approved markup and CSS are progressively enhanced with source selection, source type, prompt selection/custom prompt text, project link, validation, and transition to the approved `feedback-thinking.html` state. No other screen is being made functional. The layout and CSS are unchanged; no existing Director data is read or changed beyond the browser-local prompt/project records selected by this one workflow.
 
 ## Source and implementation
 
