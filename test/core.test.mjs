@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createApp } from '../server.mjs';
 import { createModelClient } from '../src/model.mjs';
+import { SessionStore } from '../src/store.mjs';
 import { getPrompt, prompts, reviewSchema, parseFeedback, chatMessages, validateImage } from '../src/core.mjs';
 
 const image = { name: 'test.png', dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' };
@@ -42,7 +43,7 @@ test('Every follow-up replays image, original prompt snapshot, full feedback and
 test('Real HTTP routes accept repeated images as separate critiques and use selected prompt data', async t => {
   const calls = [];
   const client = { models: async () => [{ id: 'vision' }], complete: async request => { calls.push(request); return { raw: request.format ? JSON.stringify(Object.fromEntries(request.format.json_schema.schema.required.map(k => [k, 'Specific critique']))) : 'Follow-up answer' }; } };
-  const base = await listen(t, createApp({ client }));
+  const base = await listen(t, createApp({ client, store: new SessionStore(':memory:') }));
   const request = { image, promptId: 'design-review', model: 'vision' };
   const first = await post(base, '/api/feedback', request), second = await post(base, '/api/feedback', request);
   assert.equal(first.status, 200); assert.equal(second.status, 200);
@@ -57,7 +58,7 @@ test('Real HTTP routes accept repeated images as separate critiques and use sele
 });
 test('Invalid prompt, incomplete session, whitespace and cross-origin requests never reach the model', async t => {
   let calls = 0;
-  const base = await listen(t, createApp({ client: { complete: () => { calls++; } } }));
+  const base = await listen(t, createApp({ client: { complete: () => { calls++; } }, store: new SessionStore(':memory:') }));
   assert.equal((await post(base, '/api/feedback', { image, model: 'vision', promptId: 'missing' })).status, 400);
   assert.equal((await post(base, '/api/chat', { session: {}, message: 'hello' })).status, 400);
   assert.equal((await post(base, '/api/chat', { session: fixture(), message: '   ' })).status, 400);
@@ -67,7 +68,7 @@ test('Invalid prompt, incomplete session, whitespace and cross-origin requests n
   assert.equal(calls, 0);
 });
 test('Provider errors return review raw text without manufacturing a successful session', async t => {
-  const base = await listen(t, createApp({ client: { complete: async () => ({ raw: '{"section_1":"incomplete"}' }) } }));
+  const base = await listen(t, createApp({ client: { complete: async () => ({ raw: '{"section_1":"incomplete"}' }) }, store: new SessionStore(':memory:') }));
   const response = await post(base, '/api/feedback', { image, model: 'vision', promptId: 'photography-review' });
   assert.equal(response.status, 502); assert.equal(response.body.raw, '{"section_1":"incomplete"}'); assert.equal(response.body.session, undefined);
 });

@@ -14,7 +14,7 @@ export function validateImage(image) {
   if (!image || typeof image !== 'object') throw new AppError('Select an image first.');
   requireText(image.name, 'Image name', 500);
   const match = typeof image.dataUrl === 'string' && image.dataUrl.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
-  if (!match || image.dataUrl.length > 16 * 1024 * 1024) throw new AppError('Use a JPEG, PNG or WebP image smaller than 12 MB.');
+  if (!match || match[2].length > 16 * 1024 * 1024) throw new AppError('Use a JPEG, PNG or WebP image no larger than 12 MB.');
   const bytes = Buffer.from(match[2], 'base64');
   const valid = match[1] === 'jpeg' ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
     : match[1] === 'png' ? bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
@@ -31,9 +31,17 @@ export function reviewSchema(prompt) {
   const properties = Object.fromEntries(prompt.sections.map((heading, index) => [`section_${index + 1}`, { type: 'string', description: [heading, prompt.sectionGuidance?.[heading]].filter(Boolean).join('. ') }]));
   return { type: 'json_schema', json_schema: { name: 'director_review', strict: true, schema: { type: 'object', properties, required: Object.keys(properties), additionalProperties: false } } };
 }
-export function originalMessages(image, prompt) {
+export function validatePromptSnapshot(prompt) {
+  if (!prompt || typeof prompt !== 'object') throw new AppError('The original prompt is missing.');
+  for (const key of ['id', 'name', 'category']) requireText(prompt[key], `Prompt ${key}`, 500);
+  requireText(prompt.instruction, 'Original prompt', 12000);
+  if (!Array.isArray(prompt.sections) || prompt.sections.length < 1 || prompt.sections.length > 30) throw new AppError('Invalid original prompt sections.');
+  prompt.sections.forEach(s => requireText(s, 'Section heading', 300));
+  return structuredClone(prompt);
+}
+export function originalMessages(image, prompt, instructions = systemInstruction) {
   return [
-    { role: 'system', content: systemInstruction },
+    { role: 'system', content: instructions },
     { role: 'user', content: [
       { type: 'image_url', image_url: { url: image.dataUrl } },
       { type: 'text', text: `${prompt.instruction}\n\nReview sections:\n${prompt.sections.map((s, i) => `${i + 1}. ${s}`).join('\n')}` }
@@ -51,13 +59,8 @@ export function parseFeedback(raw, prompt) {
 export function chatMessages(session, message) {
   if (!session || typeof session !== 'object') throw new AppError('Generate feedback before chatting.');
   const image = validateImage(session.image);
-  const prompt = getPrompt(session.prompt?.id);
-  // Preserve the exact prompt snapshot used for this session, even if the catalog changes later.
-  requireText(session.prompt.instruction, 'Original prompt', 12000);
-  if (!Array.isArray(session.prompt.sections) || session.prompt.sections.length < 1 || session.prompt.sections.length > 30) throw new AppError('Invalid original prompt sections.');
-  session.prompt.sections.forEach(s => requireText(s, 'Section heading', 300));
-  prompt.instruction = session.prompt.instruction;
-  prompt.sections = session.prompt.sections;
+  // Saved sessions do not look up the mutable catalog, including when an old prompt was removed.
+  const prompt = validatePromptSnapshot(session.prompt);
   const raw = requireText(session.feedback?.raw, 'Original feedback', 40000);
   parseFeedback(raw, prompt);
   if (!Array.isArray(session.chat) || session.chat.length % 2 !== 0) throw new AppError('Invalid conversation history.');
@@ -65,5 +68,6 @@ export function chatMessages(session, message) {
     if (turn.role !== (i % 2 === 0 ? 'user' : 'assistant')) throw new AppError('Invalid conversation order.');
     return { role: turn.role, content: requireText(turn.content, 'Chat message', 40000) };
   });
-  return [...originalMessages(image, prompt), { role: 'assistant', content: raw }, ...history, { role: 'user', content: requireText(message, 'Message') }];
+  const instructions = session.systemInstruction === undefined ? systemInstruction : requireText(session.systemInstruction, 'Original system instructions', 20000);
+  return [...originalMessages(image, prompt, instructions), { role: 'assistant', content: raw }, ...history, { role: 'user', content: requireText(message, 'Message') }];
 }

@@ -5,6 +5,7 @@
 
 # Director runtime data
 .director-runtime/
+.director-data/
 
 # Node
 node_modules/

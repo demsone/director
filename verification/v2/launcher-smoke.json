@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "checkedAt": "2026-09-19T12:48:30.430Z",
+  "url": "http://127.0.0.1:4177/",
+  "title": "Director V2",
+  "history": "No saved sessions yet. Your first completed critique will appear here.",
+  "model": "qwen3-vl-8b-instruct"
+}

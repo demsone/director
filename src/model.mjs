@@ -27,13 +27,14 @@ export function createModelClient({ baseUrl = process.env.LM_STUDIO_URL || 'http
     return data.models.filter(m => m.type === 'llm' && m.capabilities?.vision === true).flatMap(m => (m.loaded_instances || []).map(instance => ({ id: instance.id, name: m.display_name, contextLength: instance.config?.context_length })));
   }
   async function complete({ model, messages, format, signal }) {
-    if (!(await models(signal)).some(m => m.id === model)) throw new AppError('The selected vision model is not loaded. Load it in LM Studio, then refresh models.', 409);
+    const loaded = (await models(signal)).find(m => m.id === model);
+    if (!loaded) throw new AppError(`The saved or selected vision model (${model}) is not loaded. Load this model in LM Studio, then refresh models. Your saved session is unchanged.`, 409);
     const data = await request('/v1/chat/completions', { model, messages, stream: false, temperature: 0.35, max_tokens: format ? 2400 : 1200, ...(format ? { response_format: format } : {}) }, signal);
     const choice = data.choices?.[0];
     const raw = choice?.message?.content;
     if (typeof raw !== 'string' || !raw.trim()) throw new AppError('The model returned no final answer. It may have exhausted its budget on reasoning. Disable thinking in LM Studio and retry.', 502);
     if (choice.finish_reason !== 'stop') throw new AppError(`The model response was incomplete (${choice.finish_reason || 'unknown reason'}). Retry with a larger model context or a shorter question.`, 502, { raw });
-    return { raw, usage: data.usage || null, model: data.model || model };
+    return { raw, usage: data.usage || null, model: data.model || model, modelInfo: { provider: 'LM Studio', requestedModel: model, responseModel: data.model || model, name: loaded.name, contextLength: loaded.contextLength, temperature: 0.35, maxTokens: format ? 2400 : 1200 } };
   }
   return { models, complete };
 }
