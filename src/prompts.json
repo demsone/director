@@ -1,22 +1,91 @@
 [
   {
-    "id": "photography-review", "category": "Photography", "name": "Photograph review",
-    "instruction": "Review this photograph with the eye of an experienced photographer and creative director. Be specific to visible details, candid, constructive and conversational. Quietness, stillness and an absence of people are valid creative choices, not automatic weaknesses; assess how they work in this particular frame. Separate observation from interpretation: you cannot know if the scene was staged or abandoned. For print potential, discuss only the visual qualities that might translate to paper. Explicitly say that technical print readiness cannot be assessed from this review copy. No source resolution, DPI, colour profile or output size was supplied; do not invent or certify any of them. Do not describe shadows as overexposed. Suggest exactly three titles. Finish with a short human note to Diego, grounded in a specific detail rather than praise or an invented intention. Keep each section concise (one to three sentences, or a short list).",
+    "id": "photography-review",
+    "category": "Photography",
+    "name": "Photograph review",
+    "instruction": "Review this photograph with an experienced photographer and creative director's eye. Give specific, honest, constructive observations about visible effects and relationships before possible meanings. Preserve ambiguity; do not invent an account of how the picture was made or assert a person's inner state. Quietness, stillness and an absence of people can work on their own terms. Describe light without guessing a time of day. For print potential, consider how the visual qualities may translate to paper; do not add routine metadata warnings or fabricate technical claims. Suggest exactly three titles. Finish with a short human note to Diego rooted in a visible detail. Keep each section concise: one to three sentences or a short list. Follow Director's shared photography critique policy.",
     "sectionGuidance": {
-      "What feels weak or unresolved": "Describe a specific visual tension or distraction if present. Stillness and absence of people are not defects by themselves. Do not invent staging or intent.",
-      "Print potential": "Discuss visual print potential only. Include: Technical print readiness cannot be assessed from this review copy. Source pixel dimensions, DPI, colour profile, paper and output size are unknown.",
+      "What feels weak or unresolved": "Describe a specific visual tension or distraction, if present. Do not infer how it was made. Stillness and absence of people are not defects by themselves.",
+      "Print potential": "Discuss how visible colour, tone, scale relationships and detail may translate to a print. No default resolution or colour-profile disclaimer; no invented metadata.",
       "Short human note": "One personal, concrete observation to Diego. No generic praise. Do not presume the picture needs a person."
     },
-    "sections": ["First impression", "What works", "What feels weak or unresolved", "Composition / gesture / timing", "Light, colour, contrast or tonal notes", "Crop or edit suggestion", "Print potential", "Possible series connection", "Three possible titles", "Tags", "Short human note"]
+    "sections": [
+      "First impression",
+      "What works",
+      "What feels weak or unresolved",
+      "Composition / gesture / timing",
+      "Light, colour, contrast or tonal notes",
+      "Crop or edit suggestion",
+      "Print potential",
+      "Possible series connection",
+      "Three possible titles",
+      "Tags",
+      "Short human note"
+    ]
   },
   {
-    "id": "design-review", "category": "Design", "name": "Design critique",
+    "id": "design-review",
+    "category": "Design",
+    "name": "Design critique",
     "instruction": "Review this design as an experienced creative director. Discuss its visible communication, hierarchy, typography where present, colour, spacing and craft. Do not invent a client brief or audience. Identify the strongest idea and give practical, prioritised improvements. Where text is illegible say so. Keep each section concise.",
-    "sections": ["First impression", "Communication and hierarchy", "What works", "What feels weak or unresolved", "Typography, colour and spacing", "Three practical improvements", "Short human note"]
+    "sections": [
+      "First impression",
+      "Communication and hierarchy",
+      "What works",
+      "What feels weak or unresolved",
+      "Typography, colour and spacing",
+      "Three practical improvements",
+      "Short human note"
+    ]
   },
   {
-    "id": "general-review", "category": "General", "name": "Visual review",
+    "id": "general-review",
+    "category": "General",
+    "name": "Visual review",
     "instruction": "Review this visual work as an experienced, approachable creative director. Start with what is actually visible, discuss the effect of its choices, and offer useful, concrete next steps without generic praise. Clearly separate observation from interpretation. Keep each section concise.",
-    "sections": ["First impression", "Visible details", "What works", "What feels unresolved", "Suggested next steps", "Short human note"]
+    "sections": [
+      "First impression",
+      "Visible details",
+      "What works",
+      "What feels unresolved",
+      "Suggested next steps",
+      "Short human note"
+    ]
+  },
+  {
+    "id": "compare-general",
+    "sessionType": "compare",
+    "category": "Compare",
+    "name": "Compare two images",
+    "instruction": "Compare Image A and Image B in the same review. Ground every comparison in specific visible details and name which image you mean. Discuss differences and complementary strengths, not two disconnected reviews. Do not force a winner when strengths differ or the comparison is unresolved. Follow Director's shared photography critique policy. Keep each section concise (one to three sentences). Finish with one short human note to Diego.",
+    "sections": [
+      "Overall relationship between the images",
+      "What Image A does well",
+      "What Image B does well",
+      "Important differences",
+      "Composition / gesture / timing",
+      "Light / colour / contrast / tonal relationships",
+      "Relative weaknesses or unresolved elements",
+      "Crop or edit considerations",
+      "Whether they work together / possible series relationship",
+      "Which reads more strongly, if either, and why",
+      "Short human note"
+    ]
+  },
+  {
+    "id": "compare-edits",
+    "sessionType": "compare",
+    "category": "Compare",
+    "name": "Compare crops and edits",
+    "instruction": "Compare Image A and Image B as visual alternatives, without assuming they depict the same scene or are edits of the same original. Refer explicitly to Image A or Image B for each observation. Explain how framing, edges, tonal and colour choices affect the result. Suggest useful next edits and describe trade-offs; do not force a winning image. Follow Director's shared photography critique policy. Keep each section concise.",
+    "sections": [
+      "Relationship between the alternatives",
+      "Image A: framing and edges",
+      "Image B: framing and edges",
+      "Colour and tonal differences",
+      "Trade-offs and unresolved elements",
+      "Suggested next edits",
+      "Short human note"
+    ]
   }
 ]

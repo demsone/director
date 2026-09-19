@@ -13,7 +13,7 @@ if (!process.env.PLAYWRIGHT_PATH) throw new Error('Set PLAYWRIGHT_PATH to an ins
 const { chromium } = await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_PATH)));
 const root = resolve('.'), port = Number(process.env.DIRECTOR_V2_TEST_PORT || 4181), base = `http://127.0.0.1:${port}`;
 const directory = await mkdtemp(join(tmpdir(), 'director-v2-acceptance-'));
-const evidence = resolve('verification/v2'); await mkdir(evidence, { recursive: true });
+const evidence = resolve(process.env.DIRECTOR_EVIDENCE_DIR || 'verification/v2'); await mkdir(evidence, { recursive: true });
 const originalPath = resolve('assets/img/image.jpg.jpg');
 const original = await readFile(originalPath);
 const sourceHash = createHash('sha256').update(original).digest('hex');
@@ -27,7 +27,7 @@ async function startServer() {
   serverPids.push(server.pid);
   for (let n = 0; n < 100; n++) {
     if (server.exitCode !== null) throw new Error(`Test server failed: ${logs}`);
-    try { if ((await (await fetch(base + '/api/health')).json()).app === 'director-v2') return; } catch {}
+    try { if ((await (await fetch(base + '/api/health')).json()).app === 'director-v3') return; } catch {}
     await delay(50);
   }
   throw new Error(`Server did not start: ${logs}`);

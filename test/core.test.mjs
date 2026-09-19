@@ -13,7 +13,7 @@ async function post(base, path, body, headers = {}) { const response = await fet
 function fixture() { const prompt = getPrompt('photography-review'); return { image, prompt, model: 'vision', feedback: parseFeedback(rawFor(prompt), prompt), chat: [] }; }
 
 test('Prompt data defines all three categories, ordered schema and complete review rendering', () => {
-  assert.deepEqual(prompts.map(p => p.category), ['Photography', 'Design', 'General']);
+  assert.deepEqual(prompts.filter(p => !p.sessionType).map(p => p.category), ['Photography', 'Design', 'General']);
   for (const prompt of prompts) {
     assert.equal(reviewSchema(prompt).json_schema.schema.required.length, prompt.sections.length);
     assert.deepEqual(parseFeedback(rawFor(prompt), prompt).sections.map(s => s.heading), prompt.sections);

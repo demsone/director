@@ -33,11 +33,12 @@ export function uploadImage(image) {
   return result;
 }
 function validateRecord(record) {
-  if (!record || record.schemaVersion !== 1 || record.type !== 'feedback') throw new Error('Unsupported session format.');
+  if (!record || !((record.schemaVersion === 1 && record.type === 'feedback') || (record.schemaVersion === 2 && record.type === 'compare'))) throw new Error('Unsupported session format.');
   validatePromptSnapshot(record.prompt);
   requireText(record.model, 'Saved model', 300);
   requireText(record.systemInstruction, 'Saved system instructions', 20000);
   requireText(record.image?.name, 'Saved image name', 500);
+  if (record.type === 'compare') requireText(record.imageB?.name, 'Saved Image B name', 500);
   requireText(record.feedback?.raw, 'Saved feedback', 40000);
   record.feedback = parseFeedback(record.feedback.raw, record.prompt);
   if (!Array.isArray(record.chat) || record.chat.length % 2) throw new Error('Incomplete chat history.');
@@ -60,7 +61,7 @@ export class SessionStore {
       if (path !== ':memory:') chmodSync(path, 0o600);
       this.db.exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA secure_delete=ON;');
       const version = this.db.prepare('PRAGMA user_version').get().user_version;
-      if (version > 1) throw new Error('This database was created by a newer Director version.');
+      if (version > 2) throw new Error('This database was created by a newer Director version.');
       if (version === 0) this.db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE sessions (
           id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -68,11 +69,22 @@ export class SessionStore {
         );
         CREATE TABLE assets (
           session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-          role TEXT NOT NULL CHECK(role IN ('source','review')), mime TEXT NOT NULL, data BLOB NOT NULL, sha256 TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('source','review','source_b','review_b')), mime TEXT NOT NULL, data BLOB NOT NULL, sha256 TEXT NOT NULL,
           PRIMARY KEY(session_id, role)
         );
         CREATE INDEX sessions_updated ON sessions(updated_at DESC);
-        PRAGMA user_version=1;
+        PRAGMA user_version=2;
+        COMMIT;`);
+      if (version === 1) this.db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE assets_v3 (
+          session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+          role TEXT NOT NULL CHECK(role IN ('source','review','source_b','review_b')), mime TEXT NOT NULL, data BLOB NOT NULL, sha256 TEXT NOT NULL,
+          PRIMARY KEY(session_id, role)
+        );
+        INSERT INTO assets_v3 SELECT * FROM assets;
+        DROP TABLE assets;
+        ALTER TABLE assets_v3 RENAME TO assets;
+        PRAGMA user_version=2;
         COMMIT;`);
     } catch (error) {
       try { this.db?.close(); } catch {}
@@ -107,32 +119,43 @@ export class SessionStore {
       try {
         const s = this.decode(row);
         const assets = this.db.prepare('SELECT role FROM assets WHERE session_id=?').all(row.id);
-        return { id: s.id, title: s.title, createdAt: s.createdAt, updatedAt: s.updatedAt, revision: s.revision, imageName: s.image.name, promptName: s.prompt.name, type: s.type,
-          ...(assets.length === 2 ? {} : { error: 'A Director-owned image asset is missing. Other sessions are unaffected.' }) };
+        const roles = s.type === 'compare' ? ['source', 'review', 'source_b', 'review_b'] : ['source', 'review'];
+        return { id: s.id, title: s.title, createdAt: s.createdAt, updatedAt: s.updatedAt, revision: s.revision, imageName: s.image.name, ...(s.type === 'compare' ? { imageBName: s.imageB.name } : {}), promptName: s.prompt.name, type: s.type,
+          ...(roles.every(role => assets.some(a => a.role === role)) ? {} : { error: 'A Director-owned image asset is missing. Other sessions are unaffected.' }) };
       } catch (error) { return { id: row.id, title: row.title || 'Unreadable session', updatedAt: row.updated_at, revision: row.revision, error: error.message }; }
     });
   }
   get(id) {
     const session = this.decode(this.row(id));
     const assets = this.db.prepare('SELECT * FROM assets WHERE session_id=?').all(id);
-    for (const role of ['source', 'review']) {
+    const roles = session.type === 'compare' ? ['source', 'review', 'source_b', 'review_b'] : ['source', 'review'];
+    for (const role of roles) {
+      const target = role.endsWith('_b') ? session.imageB : session.image;
       const asset = assets.find(a => a.role === role);
       if (!asset) throw new AppError('A Director-owned image asset is missing from this session. Other saved sessions are unaffected.', 422);
       const bytes = Buffer.from(asset.data);
       if (hash(bytes) !== asset.sha256) throw new AppError('The saved image asset is damaged. This session was not changed; other sessions are unaffected.', 422);
       const dataUrl = `data:${asset.mime};base64,${bytes.toString('base64')}`;
-      try { validateImage({ name: session.image.name, dataUrl }); } catch { throw new AppError('The saved image asset is malformed. Other sessions are unaffected.', 422); }
-      session.image[role === 'source' ? 'sourceDataUrl' : 'dataUrl'] = dataUrl;
+      try { validateImage({ name: target.name, dataUrl }); } catch { throw new AppError('The saved image asset is malformed. Other sessions are unaffected.', 422); }
+      target[role.startsWith('source') ? 'sourceDataUrl' : 'dataUrl'] = dataUrl;
     }
     return session;
   }
   create(session) {
     checkId(session.id);
+    const type = session.type || 'feedback';
+    if (!['feedback', 'compare'].includes(type)) throw new AppError('Unsupported session type.');
     const image = uploadImage(session.image);
     const assets = { source: imageParts(image.sourceDataUrl, image.name), review: imageParts(image.dataUrl, image.name) };
     const { dataUrl, sourceDataUrl, ...metadata } = image;
-    const { id, createdAt, updatedAt, revision, title, ...rest } = session;
-    const record = validateRecord({ ...rest, schemaVersion: 1, type: 'feedback', image: metadata });
+    let metadataB;
+    if (type === 'compare') {
+      const imageB = uploadImage(session.imageB);
+      assets.source_b = imageParts(imageB.sourceDataUrl, imageB.name); assets.review_b = imageParts(imageB.dataUrl, imageB.name);
+      const { dataUrl: bData, sourceDataUrl: bSource, ...bMetadata } = imageB; metadataB = bMetadata;
+    }
+    const { id, createdAt, updatedAt, revision, title, imageB, ...rest } = session;
+    const record = validateRecord({ ...rest, schemaVersion: type === 'compare' ? 2 : 1, type, image: metadata, ...(metadataB ? { imageB: metadataB } : {}) });
     this.transaction(() => {
       this.db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?,?)').run(id, titleText(title || image.name), createdAt, updatedAt, 1, JSON.stringify(record));
       const insert = this.db.prepare('INSERT INTO assets VALUES(?,?,?,?,?)');
@@ -168,7 +191,7 @@ export class SessionStore {
       const row = this.row(id); this.checkRevision(row, revision);
       this.db.prepare('DELETE FROM sessions WHERE id=?').run(id);
     });
-    // Cascade removes both assets in the same transaction; no per-session files can be orphaned.
+    // Cascade removes every owned asset in the same transaction; no per-session files can be orphaned.
     this.db.exec('PRAGMA wal_checkpoint(PASSIVE)');
   }
 }

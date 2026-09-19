@@ -41,7 +41,8 @@ test('Removed or changed prompts never invalidate saved conversation context', t
     const input = fixture(); input.prompt.id = 'removed-from-catalog'; input.prompt.instruction = 'Original direction, preserved forever'; input.systemInstruction = 'Original system contract';
     const saved = store.create(input);
     const messages = chatMessages(store.get(saved.id), 'Continue');
-    assert.equal(messages[0].content, input.systemInstruction);
+    assert.ok(messages[0].content.startsWith(input.systemInstruction));
+    assert.match(messages[0].content, /PHOTOGRAPHY CRITIQUE POLICY/);
     assert.match(messages[1].content[1].text, /Original direction, preserved forever/);
     assert.equal(messages[1].content[0].image_url.url, review);
   } finally { store.close(); }
@@ -105,7 +106,7 @@ test('Concurrent store connections reject stale updates and cannot resurrect del
   } finally { a.close(); b.close(); }
 });
 test('Unsupported database versions are rejected without resetting existing data', t => {
-  const path = disk(t), store = new SessionStore(path); store.create(fixture()); store.db.exec('PRAGMA user_version=2'); store.close();
+  const path = disk(t), store = new SessionStore(path); store.create(fixture()); store.db.exec('PRAGMA user_version=3'); store.close();
   assert.throws(() => new SessionStore(path), /newer Director version/);
 });
 test('Chat HTTP uses saved context, retries idempotently, and model errors preserve saved turns', async t => {

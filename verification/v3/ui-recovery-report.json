@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "checks": [
+    "Missing B asset disables opening the affected record while preserving delete and other sessions",
+    "Compare restore displays both images and Compare prompt choices",
+    "Reopen preserves unsent draft",
+    "Cancelled mode switch preserves Compare and draft",
+    "Confirmed mode switch restores Feedback controls without changing saved Compare"
+  ],
+  "inference": "Mock model listing only; no inference performed"
+}

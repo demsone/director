@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "date": "2026-09-19T15:42:40.217Z",
+  "sourceSchema": 1,
+  "migratedCopySchema": 2,
+  "sessionCount": 8,
+  "assetCount": 16,
+  "exactRecordsAndAssetBytesPreserved": true,
+  "allSessionsOpen": true,
+  "integrityCheck": "ok",
+  "method": "Consistent SQLite snapshot of actual V2 user database; migration tested only on temporary copy; source database not migrated",
+  "recordHash": "36cafc66989516ec5553f2d89dc968e77c022e791b2ae0241ad4467470344a38"
+}

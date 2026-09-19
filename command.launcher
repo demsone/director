@@ -14,7 +14,7 @@ DIRECTOR_PORT="${PORT:-4177}"
 export PORT="$DIRECTOR_PORT"
 DIRECTOR_URL="http://127.0.0.1:$DIRECTOR_PORT"
 director_is_ready() {
-  curl -fsS --max-time 2 "$DIRECTOR_URL/api/health" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{process.exit(JSON.parse(s).app==="director-v2"?0:1)}catch{process.exit(1)}})'
+  curl -fsS --max-time 2 "$DIRECTOR_URL/api/health" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{process.exit(JSON.parse(s).app==="director-v3"?0:1)}catch{process.exit(1)}})'
 }
 if director_is_ready; then
   echo "Director is already running at $DIRECTOR_URL"

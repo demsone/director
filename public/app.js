@@ -1,5 +1,6 @@
 const $ = id => document.getElementById(id);
-let prompts = [], image = null, session = null, pending = null, decoding = false, imageVersion = 0;
+let prompts = [], image = null, imageB = null, mode = 'feedback', session = null, pending = null, decoding = 0;
+const imageVersion = { A: 0, B: 0 };
 let chatRequest = null;
 
 function error(message = '', raw = '') {
@@ -8,9 +9,10 @@ function error(message = '', raw = '') {
 }
 function sync() {
   const busy = !!pending || decoding;
-  for (const id of ['image-file', 'prompt', 'model']) $(id).disabled = busy || !!session;
+  for (const id of ['image-file', 'image-file-b', 'prompt', 'model']) $(id).disabled = busy || !!session;
+  $('mode').disabled = busy;
   $('refresh').disabled = busy;
-  $('review').disabled = busy || !image || !$('model').value || !$('prompt').value || !!session;
+  $('review').disabled = busy || !image || (mode === 'compare' && !imageB) || !$('model').value || !$('prompt').value || !!session;
   $('review').hidden = !!session;
   $('new').hidden = !session; $('new').disabled = busy;
   $('send').disabled = busy || !session;
@@ -19,6 +21,13 @@ function sync() {
   $('chat-section').hidden = !session;
   $('refresh-history').disabled = busy;
   for (const button of $('history-list').querySelectorAll('button')) button.disabled = busy || button.dataset.unavailable === 'true';
+  document.body.dataset.mode = mode;
+  $('image-b-panel').hidden = mode !== 'compare';
+  $('source-heading').textContent = mode === 'compare' ? '1. Image A' : '1. Your image';
+  $('feedback-heading').textContent = mode === 'compare' ? '3. Comparative feedback' : '3. Feedback';
+  $('review').textContent = mode === 'compare' ? 'Compare images' : 'Get feedback';
+  $('new').textContent = mode === 'compare' ? 'New comparison' : 'New critique';
+  $('chat-context').textContent = mode === 'compare' ? 'Director keeps Image A, Image B, the comparison prompt and feedback in context.' : 'Director keeps this image, prompt and feedback in context.';
 }
 async function api(path, body, signal, method = body ? 'POST' : 'GET') {
   const response = await fetch(path, { method, ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}), signal });
@@ -30,6 +39,13 @@ function showPrompt() {
   const prompt = session?.prompt || prompts.find(p => p.id === $('prompt').value);
   $('prompt-text').textContent = prompt?.instruction || '';
   $('prompt-sections').replaceChildren(...(prompt?.sections || []).map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
+}
+function populatePrompts(selected = $('prompt').value) {
+  const available = prompts.filter(p => (p.sessionType || 'feedback') === mode);
+  $('prompt').replaceChildren();
+  for (const category of [...new Set(available.map(p => p.category))]) { const group = document.createElement('optgroup'); group.label = category; group.append(...available.filter(p => p.category === category).map(p => new Option(p.name, p.id))); $('prompt').append(group); }
+  if (available.some(p => p.id === selected)) $('prompt').value = selected;
+  showPrompt();
 }
 async function refreshModels() {
   $('refresh').disabled = true;
@@ -50,12 +66,12 @@ async function refreshModels() {
     if (session) { $('model').add(new Option(`${session.model} · saved model`, session.model)); $('model').value = session.model; }
   } finally { sync(); }
 }
-async function selectImage(file) {
-  if (!file || pending || session) return;
-  const version = ++imageVersion;
+async function selectImage(file, slot = 'A') {
+  if (!file || pending || session || (slot === 'B' && mode !== 'compare')) return;
+  const suffix = slot === 'B' ? '-b' : '';
   error();
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) { error('Choose a JPEG, PNG or WebP image up to 12 MB.'); $('image-file').value = ''; return; }
-  decoding = true; sync();
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) { error('Choose a JPEG, PNG or WebP image up to 12 MB.'); $(`image-file${suffix}`).value = ''; return; }
+  const version = ++imageVersion[slot]; decoding++; sync();
   try {
     const source = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('The image could not be read.')); reader.readAsDataURL(file); });
     const picture = new Image(); picture.src = source; await picture.decode();
@@ -64,12 +80,19 @@ async function selectImage(file) {
     const scale = Math.min(1, 1600 / Math.max(picture.naturalWidth, picture.naturalHeight));
     const canvas = document.createElement('canvas'); canvas.width = Math.round(picture.naturalWidth * scale); canvas.height = Math.round(picture.naturalHeight * scale);
     const context = canvas.getContext('2d'); context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(picture, 0, 0, canvas.width, canvas.height);
-    if (version !== imageVersion) return;
-    image = { name: file.name, sourceDataUrl: source, dataUrl: canvas.toDataURL('image/jpeg', 0.92), width: picture.naturalWidth, height: picture.naturalHeight, reviewWidth: canvas.width, reviewHeight: canvas.height };
-    $('preview').src = source; $('preview').alt = `Source image: ${file.name}`; $('preview').hidden = false; $('empty-image').hidden = true;
-    $('image-name').textContent = `${file.name} · ${picture.naturalWidth} × ${picture.naturalHeight} · review copy ${canvas.width} × ${canvas.height}`;
-  } catch (e) { if (version === imageVersion) error(`Could not open this image. ${e.message}`); }
-  finally { if (version === imageVersion) { decoding = false; $('image-file').value = ''; sync(); } }
+    if (version !== imageVersion[slot]) return;
+    const selected = { name: file.name, sourceDataUrl: source, dataUrl: canvas.toDataURL('image/jpeg', 0.92), width: picture.naturalWidth, height: picture.naturalHeight, reviewWidth: canvas.width, reviewHeight: canvas.height };
+    if (slot === 'A') image = selected; else imageB = selected;
+    renderImage(selected, slot);
+  } catch (e) { if (version === imageVersion[slot]) error(`Could not open Image ${slot}. ${e.message}`); }
+  finally { decoding--; if (version === imageVersion[slot]) $(`image-file${suffix}`).value = ''; sync(); }
+}
+function renderImage(selected, slot) {
+  const suffix = slot === 'B' ? '-b' : '';
+  const preview = $(`preview${suffix}`); preview.hidden = !selected; $(`empty-image${suffix}`).hidden = !!selected;
+  if (!selected) { preview.removeAttribute('src'); $(`image-name${suffix}`).textContent = 'JPEG, PNG or WebP · up to 12 MB'; return; }
+  preview.src = selected.sourceDataUrl; preview.alt = `Image ${slot}: ${selected.name}`;
+  $(`image-name${suffix}`).textContent = `${selected.name}${selected.width ? ` · ${selected.width} × ${selected.height} · review copy ${selected.reviewWidth} × ${selected.reviewHeight}` : ''}${session ? ' · Director-owned copy' : ''}`;
 }
 async function run(status, action) {
   error(); pending = new AbortController(); $('status').textContent = status; sync();
@@ -83,7 +106,7 @@ function renderFeedback() {
     title.textContent = `${i + 1}. ${heading}`; text.textContent = content; section.append(title, text); return section;
   }));
   $('raw').textContent = session.feedback.raw; $('raw-response').hidden = false;
-  $('session-info').textContent = `${session.image.name} · ${session.prompt.category} / ${session.prompt.name} · ${session.model}`;
+  $('session-info').textContent = `${session.type === 'compare' ? `Image A: ${session.image.name} / Image B: ${session.imageB.name}` : session.image.name} · ${session.prompt.category} / ${session.prompt.name} · ${session.model}`;
   $('save-status').textContent = `Saved locally · ${session.title || session.image.name} · updated ${new Date(session.updatedAt).toLocaleString()}`;
 }
 function renderChat() {
@@ -102,7 +125,7 @@ async function refreshHistory() {
       if (item.id === session?.id) li.setAttribute('aria-current', 'true');
       const description = document.createElement('div'); description.className = 'history-description';
       const title = document.createElement('strong'); title.textContent = item.title || item.imageName || 'Untitled session';
-      const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${item.imageName || 'Image unavailable'} · updated ${new Date(item.updatedAt).toLocaleString()}`;
+      const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${item.type === 'compare' ? `Compare · A: ${item.imageName} / B: ${item.imageBName}` : `Feedback · ${item.imageName || 'Image unavailable'}`} · updated ${new Date(item.updatedAt).toLocaleString()}`;
       description.append(title, meta);
       if (item.error) { const warning = document.createElement('p'); warning.textContent = item.error; description.append(warning); }
       const actions = document.createElement('div'); actions.className = 'history-actions';
@@ -119,11 +142,10 @@ async function refreshHistory() {
 }
 function keepDraft() { return !$('message').value.trim() || window.confirm('Discard the unsent draft? Your completed conversation is already saved.'); }
 function restoreSession(saved, { preserveDraft = false } = {}) {
-  session = saved; image = saved.image; if (!preserveDraft) { $('message').value = ''; chatRequest = null; }
-  $('preview').src = image.sourceDataUrl; $('preview').alt = `Source image: ${image.name}`; $('preview').hidden = false; $('empty-image').hidden = true;
-  $('image-name').textContent = `${image.name}${image.width ? ` · ${image.width} × ${image.height} · review copy ${image.reviewWidth} × ${image.reviewHeight}` : ''} · Director-owned copy`;
-  for (const option of $('prompt').querySelectorAll('[data-snapshot]')) option.remove();
-  if (!prompts.some(p => p.id === saved.prompt.id)) { const option = new Option(saved.prompt.name, saved.prompt.id); option.dataset.snapshot = 'true'; $('prompt').add(option); }
+  session = saved; image = saved.image; imageB = saved.imageB || null; mode = saved.type; $('mode').value = mode;
+  if (!preserveDraft) { $('message').value = ''; chatRequest = null; }
+  renderImage(image, 'A'); renderImage(imageB, 'B'); populatePrompts(saved.prompt.id);
+  if (![...$('prompt').options].some(p => p.value === saved.prompt.id)) { const option = new Option(saved.prompt.name, saved.prompt.id); option.dataset.snapshot = 'true'; $('prompt').add(option); }
   $('prompt').value = saved.prompt.id;
   // Always show the saved name/content, even if the catalog changed under the same ID.
   const option = [...$('prompt').options].find(o => o.value === saved.prompt.id); if (option) option.textContent = saved.prompt.name;
@@ -148,10 +170,9 @@ function clearSession({ retainImage = true } = {}) {
   session = null; chatRequest = null;
   $('feedback').replaceChildren(); $('chat-log').replaceChildren(); $('raw').textContent = ''; $('raw-response').hidden = true;
   $('message').value = ''; $('save-status').textContent = ''; $('session-info').textContent = 'Choose a prompt or replace the image for a new critique.';
-  for (const option of $('prompt').querySelectorAll('[data-snapshot]')) option.remove();
-  for (const prompt of prompts) { const option = [...$('prompt').options].find(o => o.value === prompt.id); if (option) option.textContent = prompt.name; }
-  if (!$('prompt').value) $('prompt').value = prompts[0]?.id || '';
-  if (!retainImage) { image = null; $('preview').removeAttribute('src'); $('preview').hidden = true; $('empty-image').hidden = false; $('image-name').textContent = 'JPEG, PNG or WebP · up to 12 MB'; }
+  populatePrompts();
+  if (!retainImage) { image = null; imageB = null; }
+  renderImage(image, 'A'); renderImage(imageB, 'B');
   showPrompt(); sync();
 }
 function deleteSession(item) {
@@ -161,16 +182,23 @@ function deleteSession(item) {
     if (session?.id === item.id) { clearSession({ retainImage: false }); await refreshModels(); }
   });
 }
-$('image-file').addEventListener('change', e => selectImage(e.target.files[0]));
-for (const name of ['dragenter', 'dragover']) $('drop-zone').addEventListener(name, e => { e.preventDefault(); if (!pending && !session) $('drop-zone').classList.add('dragging'); });
-$('drop-zone').addEventListener('dragleave', () => $('drop-zone').classList.remove('dragging'));
-$('drop-zone').addEventListener('drop', e => { e.preventDefault(); $('drop-zone').classList.remove('dragging'); if (e.dataTransfer.files.length > 1) error('Drop one image at a time.'); else selectImage(e.dataTransfer.files[0]); });
+for (const slot of ['A', 'B']) {
+  const suffix = slot === 'B' ? '-b' : '', drop = $(`drop-zone${suffix}`);
+  $(`image-file${suffix}`).addEventListener('change', e => selectImage(e.target.files[0], slot));
+  for (const name of ['dragenter', 'dragover']) drop.addEventListener(name, e => { e.preventDefault(); if (!pending && !session) drop.classList.add('dragging'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragging'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('dragging'); if (e.dataTransfer.files.length > 1) error(`Drop one image into Image ${slot} at a time.`); else selectImage(e.dataTransfer.files[0], slot); });
+}
+$('mode').addEventListener('change', () => {
+  if (!keepDraft()) { $('mode').value = mode; return; }
+  mode = $('mode').value; clearSession(); error(); refreshModels(); refreshHistory();
+});
 window.addEventListener('dragover', e => e.preventDefault()); window.addEventListener('drop', e => e.preventDefault());
 $('prompt').addEventListener('change', showPrompt); $('model').addEventListener('change', sync); $('refresh').addEventListener('click', refreshModels);
 $('refresh-history').addEventListener('click', refreshHistory);
 $('cancel').addEventListener('click', () => pending?.abort());
-$('review').addEventListener('click', () => run('Reviewing your image with the local model. This may take a minute…', async signal => {
-  const data = await api('/api/feedback', { image, promptId: $('prompt').value, model: $('model').value }, signal);
+$('review').addEventListener('click', () => run(mode === 'compare' ? 'Comparing Image A and Image B with the local model…' : 'Reviewing your image with the local model. This may take a minute…', async signal => {
+  const data = await api(mode === 'compare' ? '/api/compare' : '/api/feedback', { image, ...(mode === 'compare' ? { imageB } : {}), promptId: $('prompt').value, model: $('model').value }, signal);
   restoreSession(data.session);
 }));
 $('chat-form').addEventListener('submit', e => {
@@ -188,7 +216,7 @@ $('new').addEventListener('click', () => {
 window.addEventListener('beforeunload', e => { if (pending || $('message').value.trim()) { e.preventDefault(); e.returnValue = ''; } });
 try {
   prompts = (await api('/api/prompts')).prompts;
-  for (const category of [...new Set(prompts.map(p => p.category))]) { const group = document.createElement('optgroup'); group.label = category; group.append(...prompts.filter(p => p.category === category).map(p => new Option(p.name, p.id))); $('prompt').append(group); }
+  populatePrompts();
   showPrompt(); await Promise.all([refreshModels(), refreshHistory()]);
 } catch (e) { error(`Director could not start: ${e.message}`); }
 sync();
