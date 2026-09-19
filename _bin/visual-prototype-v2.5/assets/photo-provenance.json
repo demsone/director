@@ -1,0 +1,68 @@
+[
+  {
+    "path": "assets/images/photo-5bb4b44535b8.png",
+    "reference": "01 \u2014 Director/Director/Feedback + Chat.jpg",
+    "sourceNode": "I93:10488;74:1861;74:1834",
+    "sourceBox": {
+      "x": 644,
+      "y": -447.75,
+      "width": 549,
+      "height": 330
+    }
+  },
+  {
+    "path": "assets/images/photo-38af562ebdf4.png",
+    "reference": "02 \u2014 Director/Director/Compare.jpg",
+    "sourceNode": "I93:10147;74:1893;74:1830",
+    "sourceBox": {
+      "x": -49,
+      "y": 368.714,
+      "width": 274.5,
+      "height": 202.199
+    }
+  },
+  {
+    "path": "assets/images/photo-dc2f16c5d1e7.png",
+    "reference": "02 \u2014 Director/Director/Compare.jpg",
+    "sourceNode": "I93:10147;4015:2933;4015:2625;4015:2572;4015:2531",
+    "sourceBox": {
+      "x": -24.2,
+      "y": 1362.141,
+      "width": 226,
+      "height": 180
+    }
+  },
+  {
+    "path": "assets/images/photo-e48840f89df5.png",
+    "reference": "03 \u2014 Darkroom/Darkroom/Library.jpg",
+    "sourceNode": "I4010:5467;93:8205",
+    "sourceBox": {
+      "x": 292.2,
+      "y": 265.95,
+      "width": 141.6,
+      "height": 97.296
+    }
+  },
+  {
+    "path": "assets/images/photo-903acae03572.png",
+    "reference": "04 - Projects/Detail/Feedback.jpg",
+    "sourceNode": "I93:11522;93:8473",
+    "sourceBox": {
+      "x": 3849,
+      "y": -21.286,
+      "width": 124.222,
+      "height": 124.222
+    }
+  },
+  {
+    "path": "assets/images/photo-caa4e255647d.png",
+    "reference": "09 \u2014 Compare/Compare/Result.jpg",
+    "sourceNode": "I2001:3856;4015:3406;74:1830",
+    "sourceBox": {
+      "x": 305,
+      "y": 205.75,
+      "width": 561,
+      "height": 413.237
+    }
+  }
+]

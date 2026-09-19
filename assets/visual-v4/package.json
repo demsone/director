@@ -1,0 +1,1 @@
+{"name":"director-v4","private":true,"type":"module","scripts":{"build":"node scripts/build.mjs","start":"node serve.mjs","check":"node --check scripts/build.mjs && node --check director-core.js && node --check functional-runtime.js && node --check serve.mjs","test":"node --test tests/*.test.mjs"}}

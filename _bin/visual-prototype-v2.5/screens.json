@@ -1,0 +1,135 @@
+[
+  {
+    "name": "Director / New Feedback",
+    "path": "director-new-feedback.html",
+    "nodeId": "93:11963",
+    "width": 1512,
+    "height": 1321
+  },
+  {
+    "name": "Director / Feedback + Chat",
+    "path": "director-feedback-chat.html",
+    "nodeId": "93:10481",
+    "width": 1512,
+    "height": 2030.893
+  },
+  {
+    "name": "Director / New Compare",
+    "path": "director-new-compare.html",
+    "nodeId": "93:12069",
+    "width": 1512,
+    "height": 1304
+  },
+  {
+    "name": "Director / Compare",
+    "path": "director-compare.html",
+    "nodeId": "93:10140",
+    "width": 1512,
+    "height": 2575.941
+  },
+  {
+    "name": "Darkroom / Library",
+    "path": "darkroom-library.html",
+    "nodeId": "93:10790",
+    "width": 1512,
+    "height": 2069.924
+  },
+  {
+    "name": "Darkroom / Quick View",
+    "path": "darkroom-quick-view.html",
+    "nodeId": "4008:2124",
+    "width": 1512,
+    "height": 1644
+  },
+  {
+    "name": "Darkroom / Feedback + Chat",
+    "path": "darkroom-feedback-chat.html",
+    "nodeId": "4008:1981",
+    "width": 1512,
+    "height": 2313.714
+  },
+  {
+    "name": "Projects / All",
+    "path": "projects-all.html",
+    "nodeId": "2013:712",
+    "width": 1512,
+    "height": 389.714
+  },
+  {
+    "name": "Projects / Quick View",
+    "path": "projects-quick-view.html",
+    "nodeId": "93:11705",
+    "width": 1512,
+    "height": 1644
+  },
+  {
+    "name": "Projects / Detail / Overview",
+    "path": "projects-detail-overview.html",
+    "nodeId": "4011:5891",
+    "width": 1512,
+    "height": 1644
+  },
+  {
+    "name": "Projects / Detail / Feedback",
+    "path": "projects-detail-feedback.html",
+    "nodeId": "93:11503",
+    "width": 1512,
+    "height": 1644
+  },
+  {
+    "name": "Project / Settings",
+    "path": "project-settings.html",
+    "nodeId": "4008:1817",
+    "width": 1512,
+    "height": 2000
+  },
+  {
+    "name": "Feedback / Detail",
+    "path": "feedback-detail.html",
+    "nodeId": "4012:7575",
+    "width": 1512,
+    "height": 2313.714
+  },
+  {
+    "name": "Prompts / All",
+    "path": "prompts-all.html",
+    "nodeId": "2001:3499",
+    "width": 1512,
+    "height": 1086.714
+  },
+  {
+    "name": "Prompts / Edit",
+    "path": "prompts-edit.html",
+    "nodeId": "4013:3610",
+    "width": 1512,
+    "height": 1644
+  },
+  {
+    "name": "Settings / Models",
+    "path": "settings-models.html",
+    "nodeId": "4016:4265",
+    "width": 1512,
+    "height": 1321
+  },
+  {
+    "name": "Settings / Personalisation",
+    "path": "settings-personalisation.html",
+    "nodeId": "2001:3674",
+    "width": 1512,
+    "height": 1321
+  },
+  {
+    "name": "Settings / Appearance",
+    "path": "settings-appearance.html",
+    "nodeId": "4016:4128",
+    "width": 1512,
+    "height": 1321
+  },
+  {
+    "name": "Compare / Result",
+    "path": "compare-result.html",
+    "nodeId": "2001:3849",
+    "width": 1512,
+    "height": 3124.444
+  }
+]

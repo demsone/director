@@ -1,0 +1,1648 @@
+{
+  "screens": [
+    {
+      "name": "Director / New Feedback",
+      "path": "director-new-feedback.html",
+      "nodeId": "93:11963",
+      "width": 1512,
+      "height": 1321,
+      "frame": {
+        "width": 1512,
+        "height": 1321
+      },
+      "textNodes": 30,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "director-new-feedback.html",
+        "director-new-compare.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1321,
+      "missingLinks": []
+    },
+    {
+      "name": "Director / Feedback + Chat",
+      "path": "director-feedback-chat.html",
+      "nodeId": "93:10481",
+      "width": 1512,
+      "height": 2030.893,
+      "frame": {
+        "width": 1512,
+        "height": 2030.875
+      },
+      "textNodes": 29,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 2031,
+      "missingLinks": []
+    },
+    {
+      "name": "Director / New Compare",
+      "path": "director-new-compare.html",
+      "nodeId": "93:12069",
+      "width": 1512,
+      "height": 1304,
+      "frame": {
+        "width": 1512,
+        "height": 1304
+      },
+      "textNodes": 21,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "director-new-compare.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1304,
+      "missingLinks": []
+    },
+    {
+      "name": "Director / Compare",
+      "path": "director-compare.html",
+      "nodeId": "93:10140",
+      "width": 1512,
+      "height": 2575.941,
+      "frame": {
+        "width": 1512,
+        "height": 2575.9375
+      },
+      "textNodes": 42,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "director-new-compare.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 2576,
+      "missingLinks": []
+    },
+    {
+      "name": "Darkroom / Library",
+      "path": "darkroom-library.html",
+      "nodeId": "93:10790",
+      "width": 1512,
+      "height": 2069.924,
+      "frame": {
+        "width": 1512,
+        "height": 2069.90625
+      },
+      "textNodes": 151,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "director-new-feedback.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html",
+        "darkroom-quick-view.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 2070,
+      "missingLinks": []
+    },
+    {
+      "name": "Darkroom / Quick View",
+      "path": "darkroom-quick-view.html",
+      "nodeId": "4008:2124",
+      "width": 1512,
+      "height": 1644,
+      "frame": {
+        "width": 1512,
+        "height": 1644
+      },
+      "textNodes": 8,
+      "brokenImages": [],
+      "links": [
+        "darkroom-library.html",
+        "darkroom-feedback-chat.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1644,
+      "missingLinks": []
+    },
+    {
+      "name": "Darkroom / Feedback + Chat",
+      "path": "darkroom-feedback-chat.html",
+      "nodeId": "4008:1981",
+      "width": 1512,
+      "height": 2313.714,
+      "frame": {
+        "width": 1512,
+        "height": 2313.703125
+      },
+      "textNodes": 31,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "director-new-feedback.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 2314,
+      "missingLinks": []
+    },
+    {
+      "name": "Projects / All",
+      "path": "projects-all.html",
+      "nodeId": "2013:712",
+      "width": 1512,
+      "height": 389.714,
+      "frame": {
+        "width": 1512,
+        "height": 389.703125
+      },
+      "textNodes": 14,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 390,
+      "missingLinks": []
+    },
+    {
+      "name": "Projects / Quick View",
+      "path": "projects-quick-view.html",
+      "nodeId": "93:11705",
+      "width": 1512,
+      "height": 1644,
+      "frame": {
+        "width": 1512,
+        "height": 1644
+      },
+      "textNodes": 8,
+      "brokenImages": [],
+      "links": [
+        "projects-detail-overview.html",
+        "feedback-detail.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1644,
+      "missingLinks": []
+    },
+    {
+      "name": "Projects / Detail / Overview",
+      "path": "projects-detail-overview.html",
+      "nodeId": "4011:5891",
+      "width": 1512,
+      "height": 1644,
+      "frame": {
+        "width": 1512,
+        "height": 1644
+      },
+      "textNodes": 43,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "project-settings.html",
+        "projects-detail-overview.html",
+        "projects-detail-feedback.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1644,
+      "missingLinks": []
+    },
+    {
+      "name": "Projects / Detail / Feedback",
+      "path": "projects-detail-feedback.html",
+      "nodeId": "93:11503",
+      "width": 1512,
+      "height": 1644,
+      "frame": {
+        "width": 1512,
+        "height": 1644
+      },
+      "textNodes": 15,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "project-settings.html",
+        "projects-detail-overview.html",
+        "projects-detail-feedback.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1644,
+      "missingLinks": []
+    },
+    {
+      "name": "Project / Settings",
+      "path": "project-settings.html",
+      "nodeId": "4008:1817",
+      "width": 1512,
+      "height": 2000,
+      "frame": {
+        "width": 1512,
+        "height": 2000
+      },
+      "textNodes": 9,
+      "brokenImages": [],
+      "links": [],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 2001,
+      "missingLinks": []
+    },
+    {
+      "name": "Feedback / Detail",
+      "path": "feedback-detail.html",
+      "nodeId": "4012:7575",
+      "width": 1512,
+      "height": 2313.714,
+      "frame": {
+        "width": 1512,
+        "height": 2313.703125
+      },
+      "textNodes": 31,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 2314,
+      "missingLinks": []
+    },
+    {
+      "name": "Prompts / All",
+      "path": "prompts-all.html",
+      "nodeId": "2001:3499",
+      "width": 1512,
+      "height": 1086.714,
+      "frame": {
+        "width": 1512,
+        "height": 1086.703125
+      },
+      "textNodes": 62,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html",
+        "prompts-edit.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1087,
+      "missingLinks": []
+    },
+    {
+      "name": "Prompts / Edit",
+      "path": "prompts-edit.html",
+      "nodeId": "4013:3610",
+      "width": 1512,
+      "height": 1644,
+      "frame": {
+        "width": 1512,
+        "height": 1644
+      },
+      "textNodes": 15,
+      "brokenImages": [],
+      "links": [
+        "prompts-all.html",
+        "prompts-all.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1644,
+      "missingLinks": []
+    },
+    {
+      "name": "Settings / Models",
+      "path": "settings-models.html",
+      "nodeId": "4016:4265",
+      "width": 1512,
+      "height": 1321,
+      "frame": {
+        "width": 1512,
+        "height": 1321
+      },
+      "textNodes": 34,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "settings-models.html",
+        "settings-personalisation.html",
+        "settings-appearance.html",
+        "prompts-all.html",
+        "settings-models.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1321,
+      "missingLinks": []
+    },
+    {
+      "name": "Settings / Personalisation",
+      "path": "settings-personalisation.html",
+      "nodeId": "2001:3674",
+      "width": 1512,
+      "height": 1321,
+      "frame": {
+        "width": 1512,
+        "height": 1321
+      },
+      "textNodes": 30,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "settings-models.html",
+        "settings-personalisation.html",
+        "settings-appearance.html",
+        "prompts-all.html",
+        "settings-personalisation.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1321,
+      "missingLinks": []
+    },
+    {
+      "name": "Settings / Appearance",
+      "path": "settings-appearance.html",
+      "nodeId": "4016:4128",
+      "width": 1512,
+      "height": 1321,
+      "frame": {
+        "width": 1512,
+        "height": 1321
+      },
+      "textNodes": 23,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html",
+        "settings-models.html",
+        "settings-personalisation.html",
+        "settings-appearance.html",
+        "prompts-all.html",
+        "settings-appearance.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "unloaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "unloaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 1321,
+      "missingLinks": []
+    },
+    {
+      "name": "Compare / Result",
+      "path": "compare-result.html",
+      "nodeId": "2001:3849",
+      "width": 1512,
+      "height": 3124.444,
+      "frame": {
+        "width": 1512,
+        "height": 3124.4375
+      },
+      "textNodes": 40,
+      "brokenImages": [],
+      "links": [
+        "director-new-feedback.html",
+        "darkroom-library.html",
+        "projects-all.html",
+        "prompts-all.html",
+        "settings-models.html"
+      ],
+      "fonts": [
+        {
+          "family": "JetBrains Mono",
+          "weight": "100 800",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "300",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "700",
+          "status": "loaded"
+        },
+        {
+          "family": "Plus Jakarta Sans",
+          "weight": "800",
+          "status": "unloaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "500",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "600",
+          "status": "loaded"
+        },
+        {
+          "family": "IBM Plex Mono",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "scriptCount": 0,
+      "storageKeys": [],
+      "contentHeight": 3125,
+      "missingLinks": []
+    }
+  ],
+  "interactions": [
+    {
+      "from": "director-new-feedback.html",
+      "label": "Director / New Compare",
+      "expected": "director-new-compare.html",
+      "passed": true
+    },
+    {
+      "from": "settings-models.html",
+      "label": "Settings / Personalisation",
+      "expected": "settings-personalisation.html",
+      "passed": true
+    },
+    {
+      "from": "settings-personalisation.html",
+      "label": "Settings / Appearance",
+      "expected": "settings-appearance.html",
+      "passed": true
+    },
+    {
+      "from": "darkroom-library.html",
+      "label": "Darkroom / Quick View",
+      "expected": "darkroom-quick-view.html",
+      "passed": true
+    },
+    {
+      "from": "darkroom-quick-view.html",
+      "label": "Darkroom / Library",
+      "expected": "darkroom-library.html",
+      "passed": true
+    },
+    {
+      "from": "prompts-all.html",
+      "label": "Prompts / Edit",
+      "expected": "prompts-edit.html",
+      "passed": true
+    },
+    {
+      "from": "projects-detail-overview.html",
+      "label": "Projects / Detail / Feedback",
+      "expected": "projects-detail-feedback.html",
+      "passed": true
+    }
+  ],
+  "narrowViewportFrameWidth": 1512,
+  "errors": []
+}

@@ -1,0 +1,114 @@
+{
+  "passed": true,
+  "date": "2026-09-19T11:08:30.291Z",
+  "steps": [
+    "File selection, image decode and preview, invalid type rejection, prompt selection, drag/drop replacement",
+    "Real local vision critique: 11 populated sections; complete response shown; image/prompt/model locked together",
+    "Two real image-aware follow-ups: visible colours/positions and prior conversation recalled; all context resent",
+    "Desktop and mobile rendering; no mobile horizontal overflow",
+    "Simulated model failure preserves source, review, chat and draft",
+    "New critique keeps image for repeat use; reload clears state; no browser storage"
+  ],
+  "model": "qwen3-vl-8b-instruct",
+  "prompt": {
+    "id": "photography-review",
+    "category": "Photography",
+    "name": "Photograph review",
+    "instruction": "Review this photograph with the eye of an experienced photographer and creative director. Be specific to visible details, candid, constructive and conversational. Quietness, stillness and an absence of people are valid creative choices, not automatic weaknesses; assess how they work in this particular frame. Separate observation from interpretation: you cannot know if the scene was staged or abandoned. For print potential, discuss only the visual qualities that might translate to paper. Explicitly say that technical print readiness cannot be assessed from this review copy. No source resolution, DPI, colour profile or output size was supplied; do not invent or certify any of them. Do not describe shadows as overexposed. Suggest exactly three titles. Finish with a short human note to Diego, grounded in a specific detail rather than praise or an invented intention. Keep each section concise (one to three sentences, or a short list).",
+    "sectionGuidance": {
+      "What feels weak or unresolved": "Describe a specific visual tension or distraction if present. Stillness and absence of people are not defects by themselves. Do not invent staging or intent.",
+      "Print potential": "Discuss visual print potential only. Include: Technical print readiness cannot be assessed from this review copy. Source pixel dimensions, DPI, colour profile, paper and output size are unknown.",
+      "Short human note": "One personal, concrete observation to Diego. No generic praise. Do not presume the picture needs a person."
+    },
+    "sections": [
+      "First impression",
+      "What works",
+      "What feels weak or unresolved",
+      "Composition / gesture / timing",
+      "Light, colour, contrast or tonal notes",
+      "Crop or edit suggestion",
+      "Print potential",
+      "Possible series connection",
+      "Three possible titles",
+      "Tags",
+      "Short human note"
+    ]
+  },
+  "image": {
+    "name": "source-photo.jpg",
+    "fixture": "/Users/diego/myapps/Director/assets/img/image.jpg.jpg"
+  },
+  "critiqueSeconds": 21.162,
+  "feedback": {
+    "raw": "{ \"section_1\": \"A quiet domestic still life with a bold yellow garment hanging against weathered siding — the color pops, but the scene feels slightly flat and unedited.\",\n\n  \"section_2\": \"The vibrant yellow shirt is the undeniable focal point. The chair’s worn upholstery adds texture and scale. The strong diagonal of the clothesline anchors the frame. The contrast between the bright fabric and faded house paint creates visual tension.\",\n\n  \"section_3\": \"The composition lacks a clear emotional anchor — no human presence or narrative context. The shadows are too uniform, suggesting midday sun without directional drama. The chair’s placement feels slightly off-center and unanchored by surrounding elements.\",\n\n  \"section_4\": \"The gesture is static — the clothesline is taut but not actively moving. Timing doesn’t imply motion; it’s a captured moment of stillness. There’s no dynamic action to suggest urgency or passage of time, which may be intentional for mood.\",\n\n  \"section_5\": \"High contrast between yellow and white walls makes the color pop — but also feels slightly oversaturated in midtones. The light is harsh, flattening textures. Warmth from the wood chair contrasts with coolness of the siding and shadows.\",\n\n  \"section_6\": \"Crop tighter around the chair and hanging shirt to eliminate distracting background elements like the window frames. Slightly lower crop to emphasize ground plane and grass at bottom edge for more grounded feel. Consider cropping right side to remove partial door frame.\",\n\n  \"section_7\": \"Print potential is visually strong — high contrast, bold color, clear subject. But without metadata or output specs, print readiness cannot be assessed from this review copy.\",\n\n  \"section_8\": \"Could fit into a series about overlooked domesticity or color in decayed environments. The yellow shirt could be repeated with different garments or settings to explore mood variations.\",\n\n  \"section_9\": \"1. Yellow on the Line\\n2. Waiting for Someone (or Nothing)\\n3. House Sitting Still\",\n\n  \"section_10\": \"still life, domestic, color contrast, quietness, yellow, chair, clothesline, weathered house, urban decay\",\n\n  \"section_11\": \"Diego — that worn cushion on the chair? It’s got a story in its creases. I’d love to see what it holds next.\" }",
+    "sections": [
+      {
+        "heading": "First impression",
+        "content": "A quiet domestic still life with a bold yellow garment hanging against weathered siding — the color pops, but the scene feels slightly flat and unedited."
+      },
+      {
+        "heading": "What works",
+        "content": "The vibrant yellow shirt is the undeniable focal point. The chair’s worn upholstery adds texture and scale. The strong diagonal of the clothesline anchors the frame. The contrast between the bright fabric and faded house paint creates visual tension."
+      },
+      {
+        "heading": "What feels weak or unresolved",
+        "content": "The composition lacks a clear emotional anchor — no human presence or narrative context. The shadows are too uniform, suggesting midday sun without directional drama. The chair’s placement feels slightly off-center and unanchored by surrounding elements."
+      },
+      {
+        "heading": "Composition / gesture / timing",
+        "content": "The gesture is static — the clothesline is taut but not actively moving. Timing doesn’t imply motion; it’s a captured moment of stillness. There’s no dynamic action to suggest urgency or passage of time, which may be intentional for mood."
+      },
+      {
+        "heading": "Light, colour, contrast or tonal notes",
+        "content": "High contrast between yellow and white walls makes the color pop — but also feels slightly oversaturated in midtones. The light is harsh, flattening textures. Warmth from the wood chair contrasts with coolness of the siding and shadows."
+      },
+      {
+        "heading": "Crop or edit suggestion",
+        "content": "Crop tighter around the chair and hanging shirt to eliminate distracting background elements like the window frames. Slightly lower crop to emphasize ground plane and grass at bottom edge for more grounded feel. Consider cropping right side to remove partial door frame."
+      },
+      {
+        "heading": "Print potential",
+        "content": "Print potential is visually strong — high contrast, bold color, clear subject. But without metadata or output specs, print readiness cannot be assessed from this review copy."
+      },
+      {
+        "heading": "Possible series connection",
+        "content": "Could fit into a series about overlooked domesticity or color in decayed environments. The yellow shirt could be repeated with different garments or settings to explore mood variations."
+      },
+      {
+        "heading": "Three possible titles",
+        "content": "1. Yellow on the Line\n2. Waiting for Someone (or Nothing)\n3. House Sitting Still"
+      },
+      {
+        "heading": "Tags",
+        "content": "still life, domestic, color contrast, quietness, yellow, chair, clothesline, weathered house, urban decay"
+      },
+      {
+        "heading": "Short human note",
+        "content": "Diego — that worn cushion on the chair? It’s got a story in its creases. I’d love to see what it holds next."
+      }
+    ]
+  },
+  "questions": [
+    "For our conversation, call my preferred edit \"Courtyard study\". Looking at the photograph, what colour is the hanging fabric, where is the chair relative to it, and where is the air conditioner? Give a short answer based on what you can actually see.",
+    "What did I call my preferred edit in my previous message? For that edit, should I keep the chair in the crop? Refer to the photograph and your original feedback. Keep it brief."
+  ],
+  "replies": [
+    "The hanging fabric is bright yellow.  \nThe chair sits on the right side of the frame, slightly below and to the right of the clothesline’s midpoint.  \nThe air conditioner is mounted high on the wall, centered above the left half of the clothesline — between the window and the chair’s position.",
+    "You called it “Courtyard study.”  \nYes — keep the chair. It anchors the composition’s weight and scale against the yellow fabric; cropping it out would remove a key visual counterpoint you established."
+  ],
+  "requests": [
+    {
+      "imageAttached": true,
+      "promptId": "photography-review",
+      "feedbackAttached": true,
+      "priorTurns": 0
+    },
+    {
+      "imageAttached": true,
+      "promptId": "photography-review",
+      "feedbackAttached": true,
+      "priorTurns": 2
+    }
+  ],
+  "consoleErrors": []
+}

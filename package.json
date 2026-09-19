@@ -1,0 +1,5 @@
+{
+  "name": "director-v1", "version": "1.0.0-checkpoint.1", "private": true, "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs", "check": "node --check server.mjs && node --check src/core.mjs && node --check src/model.mjs && node --check public/app.js", "test:e2e": "node test/browser.mjs" }
+}
