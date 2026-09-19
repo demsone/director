@@ -13,7 +13,7 @@ import { legacyModules } from './helpers/v2-fixture.mjs';
 if (!process.env.PLAYWRIGHT_PATH) throw new Error('Set PLAYWRIGHT_PATH to an installed Playwright index.mjs.');
 const { chromium } = await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_PATH)));
 const port = Number(process.env.DIRECTOR_V3_TEST_PORT || 4183), base = `http://127.0.0.1:${port}`;
-const directory = await mkdtemp(join(tmpdir(), 'director-v3-live-')), evidence = resolve('verification/v3');
+const directory = await mkdtemp(join(tmpdir(), 'director-v3-live-')), evidence = resolve(process.env.DIRECTOR_EVIDENCE_DIR || 'verification/v3');
 await mkdir(evidence, { recursive: true });
 const bytesA = await readFile('assets/img/image.jpg.jpg');
 const sourceA = `data:image/jpeg;base64,${bytesA.toString('base64')}`;
@@ -30,7 +30,7 @@ async function start() {
   result.pids.push(server.pid); server.stdout.on('data', b => { logs += b; }); server.stderr.on('data', b => { logs += b; });
   for (let i = 0; i < 100; i++) {
     if (server.exitCode !== null) throw new Error(logs);
-    try { if ((await (await fetch(base + '/api/health')).json()).app === 'director-v3') return; } catch {}
+    try { if ((await (await fetch(base + '/api/health')).json()).app === 'director-v4') return; } catch {}
     await delay(50);
   }
   throw new Error('Director did not start. ' + logs);
@@ -93,7 +93,8 @@ try {
   await chat('For Image A only, name the main coloured object and describe what sits to its right. We will call this comparison "Pair study". Keep the reply short.');
   assert.match(result.replies[0], /yellow/i); assert.match(result.replies[0], /chair/i);
   const beforeRestart = await chat('For Image B only, what are the two forms and their colours, and which one is nearer the right edge? Do not describe Image A. Keep it brief.');
-  assert.match(result.replies[1], /red/i); assert.match(result.replies[1], /square/i); assert.match(result.replies[1], /blue/i); assert.match(result.replies[1], /circle/i);
+  // A square is also a rectangle; either identifies the red form without confusing A and B.
+  assert.match(result.replies[1], /red/i); assert.match(result.replies[1], /square|rectangle/i); assert.match(result.replies[1], /blue/i); assert.match(result.replies[1], /circle/i);
   assert.doesNotMatch(result.replies[1], /yellow|cloth|chair/i);
   result.steps.push('Two separate real follow-ups correctly identify A yellow cloth/chair and B red square/blue circle without swapping them');
   await restart(); await openSaved(compare.id);

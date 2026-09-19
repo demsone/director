@@ -47,7 +47,7 @@ test('Real tagged V2 records/assets migrate unchanged; repeated opening preserve
   const old = new legacy.SessionStore(path), input = fixture('feedback'); input.prompt = legacy.getPrompt('photography-review'); input.systemInstruction = legacy.systemInstruction; input.feedback = feedback(input.prompt);
   const saved = old.create(input), rows = old.db.prepare('SELECT * FROM sessions').all(), assets = old.db.prepare('SELECT * FROM assets ORDER BY role').all(); old.close();
   let current = new SessionStore(path);
-  assert.equal(current.db.prepare('PRAGMA user_version').get().user_version, 2);
+  assert.equal(current.db.prepare('PRAGMA user_version').get().user_version, 3);
   assert.deepEqual(current.db.prepare('SELECT * FROM sessions').all(), rows);
   assert.deepEqual(current.db.prepare('SELECT * FROM assets ORDER BY role').all(), assets);
   assert.deepEqual(current.get(saved.id), saved);

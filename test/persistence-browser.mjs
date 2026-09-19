@@ -27,7 +27,7 @@ async function startServer() {
   serverPids.push(server.pid);
   for (let n = 0; n < 100; n++) {
     if (server.exitCode !== null) throw new Error(`Test server failed: ${logs}`);
-    try { if ((await (await fetch(base + '/api/health')).json()).app === 'director-v3') return; } catch {}
+    try { if ((await (await fetch(base + '/api/health')).json()).app === 'director-v4') return; } catch {}
     await delay(50);
   }
   throw new Error(`Server did not start: ${logs}`);

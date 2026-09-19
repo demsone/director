@@ -1,5 +1,5 @@
 {
-  "name": "director", "version": "3.0.0", "private": true, "type": "module",
+  "name": "director", "version": "4.0.0", "private": true, "type": "module",
   "engines": { "node": ">=22.13" },
-  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs", "check": "node --check server.mjs && node --check src/core.mjs && node --check src/model.mjs && node --check src/store.mjs && node --check public/app.js", "test:e2e": "node test/browser.mjs", "test:v2": "node test/persistence-browser.mjs", "test:v3": "node test/compare-browser.mjs" }
+  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs", "check": "node --check server.mjs && node --check src/core.mjs && node --check src/model.mjs && node --check src/store.mjs && node --check public/app.js", "test:e2e": "node test/browser.mjs", "test:v2": "node test/persistence-browser.mjs", "test:v3": "node test/compare-browser.mjs", "test:v4": "node test/organisation-browser.mjs" }
 }

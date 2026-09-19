@@ -2,6 +2,7 @@ const $ = id => document.getElementById(id);
 let prompts = [], image = null, imageB = null, mode = 'feedback', session = null, pending = null, decoding = 0;
 const imageVersion = { A: 0, B: 0 };
 let chatRequest = null;
+let organisation = { projects: [], libraries: [] }, organiseId = null, history = [];
 
 function error(message = '', raw = '') {
   $('error').textContent = message; $('error').hidden = !message;
@@ -20,7 +21,8 @@ function sync() {
   $('cancel').hidden = !pending;
   $('chat-section').hidden = !session;
   $('refresh-history').disabled = busy;
-  for (const button of $('history-list').querySelectorAll('button')) button.disabled = busy || button.dataset.unavailable === 'true';
+  for (const button of document.querySelectorAll('.session-list button, #organisation button, #membership-options input, #organisation-view')) button.disabled = busy || button.dataset.unavailable === 'true';
+  $('organise-current').hidden = !session; $('organise-current').disabled = busy;
   document.body.dataset.mode = mode;
   $('image-b-panel').hidden = mode !== 'compare';
   $('source-heading').textContent = mode === 'compare' ? '1. Image A' : '1. Your image';
@@ -98,7 +100,7 @@ async function run(status, action) {
   error(); pending = new AbortController(); $('status').textContent = status; sync();
   try { await action(pending.signal); $('status').textContent = ''; }
   catch (e) { $('status').textContent = ''; if (e.name === 'AbortError') $('status').textContent = 'Request cancelled. Check History if a save was already finishing; otherwise you can retry.'; else error(e.message, e.raw); }
-  finally { pending = null; await refreshHistory(); sync(); }
+  finally { await refreshHistory(); pending = null; sync(); }
 }
 function renderFeedback() {
   $('feedback').replaceChildren(...session.feedback.sections.map(({ heading, content }, i) => {
@@ -120,8 +122,17 @@ function renderChat() {
 async function refreshHistory() {
   try {
     const data = await api('/api/sessions');
-    $('history-list').replaceChildren(...data.sessions.map(item => {
-      const li = document.createElement('li'); li.dataset.sessionId = item.id;
+    history = data.sessions;
+    $('history-list').replaceChildren(...data.sessions.map(item => sessionItem(item)));
+    $('history-status').textContent = data.sessions.length ? `${data.sessions.length} saved session${data.sessions.length === 1 ? '' : 's'}` : 'No saved sessions yet. Your first completed critique will appear here.';
+    if (organiseId && !history.some(s => s.id === organiseId)) { organiseId = null; $('organise-panel').hidden = true; }
+  } catch (e) { $('history-status').textContent = `History could not be loaded: ${e.message}`; }
+  await refreshOrganisation();
+  sync();
+}
+function sessionItem(item, target = null) {
+      const li = document.createElement('li');
+      if (target) li.dataset.organisedSessionId = item.id; else li.dataset.sessionId = item.id;
       if (item.id === session?.id) li.setAttribute('aria-current', 'true');
       const description = document.createElement('div'); description.className = 'history-description';
       const title = document.createElement('strong'); title.textContent = item.title || item.imageName || 'Untitled session';
@@ -129,16 +140,60 @@ async function refreshHistory() {
       description.append(title, meta);
       if (item.error) { const warning = document.createElement('p'); warning.textContent = item.error; description.append(warning); }
       const actions = document.createElement('div'); actions.className = 'history-actions';
-      for (const [label, handler] of [['Open', () => openSession(item.id)], ['Rename', () => renameSession(item)], ['Delete', () => deleteSession(item)]]) {
+      const buttons = [['Open', () => openSession(item.id)], ['Rename', () => renameSession(item)], ['Organise', () => organiseSession(item.id)]];
+      if (target) buttons.push(['Remove', () => run('Removing membership…', signal => api(`/api/${target}/sessions/${item.id}`, null, signal, 'DELETE'))]);
+      buttons.push(['Delete', () => deleteSession(item)]);
+      for (const [label, handler] of buttons) {
         const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
         if (item.error && label !== 'Delete') button.dataset.unavailable = 'true';
         button.addEventListener('click', handler); actions.append(button);
       }
       li.append(description, actions); return li;
-    }));
-    $('history-status').textContent = data.sessions.length ? `${data.sessions.length} saved session${data.sessions.length === 1 ? '' : 's'}` : 'No saved sessions yet. Your first completed critique will appear here.';
-  } catch (e) { $('history-status').textContent = `History could not be loaded: ${e.message}`; }
+}
+async function refreshOrganisation() {
+  try {
+    organisation = await api('/api/organisation');
+    const selected = $('organisation-view').value;
+    const options = [new Option('Choose a Project or Library', '')];
+    for (const kind of ['libraries', 'projects']) for (const item of organisation[kind]) options.push(new Option(item.name, `${kind}/${item.id}`));
+    $('organisation-view').replaceChildren(...options);
+    if (options.some(o => o.value === selected)) $('organisation-view').value = selected;
+    else if (selected) $('organisation-status').textContent = 'That Project was deleted. Its sessions remain in History.';
+    await renderOrganisationView();
+    if (organiseId) await renderMemberships();
+  } catch (e) { $('organisation-status').textContent = `Organisation could not be loaded: ${e.message} History remains available.`; }
   sync();
+}
+async function renderOrganisationView() {
+  const target = $('organisation-view').value;
+  $('organisation-list').replaceChildren(); $('project-actions').hidden = !target.startsWith('projects/');
+  if (!target) return;
+  try {
+    const data = await api(`/api/${target}`);
+    // Ignore an old response if the user selected another view while it was loading.
+    if ($('organisation-view').value !== target) return;
+    $('organisation-list').replaceChildren(...data.sessions.map(item => sessionItem(item, target)));
+    $('organisation-status').textContent = `${data.name} · ${data.sessions.length} session${data.sessions.length === 1 ? '' : 's'}. Open uses the same session as History.`;
+  } catch (e) { if ($('organisation-view').value === target) $('organisation-status').textContent = e.message; }
+  sync();
+}
+function organiseSession(id) {
+  organiseId = id; $('organise-panel').hidden = false;
+  run('Loading memberships…', async () => { await renderMemberships(); $('organise-panel').scrollIntoView({ block: 'nearest' }); });
+}
+async function renderMemberships() {
+  const id = organiseId, memberships = await api(`/api/sessions/${id}/memberships`);
+  if (id !== organiseId) return;
+  $('organise-heading').textContent = `Organise: ${history.find(s => s.id === id)?.title || session?.title || 'Session'}`;
+  const options = [];
+  for (const kind of ['libraries', 'projects']) for (const item of organisation[kind]) {
+    const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.dataset.membership = `${kind}/${item.id}`;
+    input.checked = memberships[kind === 'projects' ? 'projectIds' : 'libraryIds'].includes(item.id);
+    if (item.error) { input.dataset.unavailable = 'true'; label.title = item.error; }
+    input.addEventListener('change', () => run('Saving membership…', signal => api(`/api/${kind}/${item.id}/sessions/${id}`, null, signal, input.checked ? 'PUT' : 'DELETE')));
+    label.append(input, document.createTextNode(item.name)); options.push(label);
+  }
+  $('membership-options').replaceChildren(...options); sync();
 }
 function keepDraft() { return !$('message').value.trim() || window.confirm('Discard the unsent draft? Your completed conversation is already saved.'); }
 function restoreSession(saved, { preserveDraft = false } = {}) {
@@ -196,6 +251,27 @@ $('mode').addEventListener('change', () => {
 window.addEventListener('dragover', e => e.preventDefault()); window.addEventListener('drop', e => e.preventDefault());
 $('prompt').addEventListener('change', showPrompt); $('model').addEventListener('change', sync); $('refresh').addEventListener('click', refreshModels);
 $('refresh-history').addEventListener('click', refreshHistory);
+$('refresh-organisation').addEventListener('click', () => run('Refreshing organisation…', async () => {}));
+$('organisation-view').addEventListener('change', renderOrganisationView);
+$('organise-current').addEventListener('click', () => organiseSession(session.id));
+$('close-organise').addEventListener('click', () => { organiseId = null; $('organise-panel').hidden = true; });
+$('create-project').addEventListener('click', () => {
+  const name = window.prompt('Project name (up to 200 characters):'); if (name === null) return;
+  run('Creating Project…', async signal => {
+    const { project } = await api('/api/projects', { name }, signal);
+    $('organisation-view').add(new Option(project.name, `projects/${project.id}`)); $('organisation-view').value = `projects/${project.id}`; $('organisation-panel').open = true;
+  });
+});
+$('rename-project').addEventListener('click', () => {
+  const project = organisation.projects.find(p => `projects/${p.id}` === $('organisation-view').value); if (!project) return;
+  const name = window.prompt('Project name (up to 200 characters):', project.name); if (name === null) return;
+  run('Renaming Project…', signal => api(`/api/projects/${project.id}`, { name, revision: project.revision }, signal, 'PATCH'));
+});
+$('delete-project').addEventListener('click', () => {
+  const project = organisation.projects.find(p => `projects/${p.id}` === $('organisation-view').value); if (!project) return;
+  if (!window.confirm(`Delete Project “${project.name}”? All its sessions stay in History and their Libraries or other Projects.`)) return;
+  run('Deleting Project…', signal => api(`/api/projects/${project.id}`, { revision: project.revision }, signal, 'DELETE'));
+});
 $('cancel').addEventListener('click', () => pending?.abort());
 $('review').addEventListener('click', () => run(mode === 'compare' ? 'Comparing Image A and Image B with the local model…' : 'Reviewing your image with the local model. This may take a minute…', async signal => {
   const data = await api(mode === 'compare' ? '/api/compare' : '/api/feedback', { image, ...(mode === 'compare' ? { imageB } : {}), promptId: $('prompt').value, model: $('model').value }, signal);

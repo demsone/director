@@ -32,10 +32,27 @@ export function createApp({ client = createModelClient(), store = new SessionSto
       if (!/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(host)) throw new AppError('Local requests only.', 403);
       if (req.headers.origin && req.headers.origin !== `http://${host}`) throw new AppError('Cross-origin requests are not allowed.', 403);
       const path = new URL(req.url, `http://${host}`).pathname;
-      if (req.method === 'GET' && path === '/api/health') return json(200, { app: 'director-v3', schemaVersion: 2 });
+      if (req.method === 'GET' && path === '/api/health') return json(200, { app: 'director-v4', schemaVersion: 3 });
       if (req.method === 'GET' && path === '/api/prompts') return json(200, { prompts });
       if (req.method === 'GET' && path === '/api/models') return json(200, { models: await client.models(abort.signal) });
       if (req.method === 'GET' && path === '/api/sessions') return json(200, { sessions: store.list() });
+      if (req.method === 'GET' && path === '/api/organisation') return json(200, store.organisation());
+      if (req.method === 'POST' && path === '/api/projects') return json(200, { project: store.createProject((await readBody(req)).name) });
+      const memberships = path.match(/^\/api\/sessions\/([^/]+)\/memberships$/);
+      if (memberships && req.method === 'GET') return json(200, store.memberships(memberships[1]));
+      const membership = path.match(/^\/api\/(projects|libraries)\/([^/]+)\/sessions\/([^/]+)$/);
+      if (membership && ['PUT', 'DELETE'].includes(req.method)) return json(200, store.setMembership(membership[1], membership[2], membership[3], req.method === 'PUT'));
+      const organisation = path.match(/^\/api\/(projects|libraries)\/([^/]+)$/);
+      if (organisation) {
+        const [, kind, id] = organisation;
+        if (req.method === 'GET') return json(200, store.organisedSessions(kind, id));
+        if (kind === 'projects' && req.method === 'PATCH') {
+          const body = await readBody(req); return json(200, { project: store.renameProject(id, body.name, body.revision) });
+        }
+        if (kind === 'projects' && req.method === 'DELETE') {
+          store.deleteProject(id, (await readBody(req)).revision); return json(200, { deleted: id });
+        }
+      }
       const saved = path.match(/^\/api\/sessions\/([^/]+)$/);
       if (saved) {
         const id = saved[1];
@@ -107,7 +124,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const port = Number(process.env.PORT || 4177);
   const server = createApp();
   server.on('error', error => { console.error(error.code === 'EADDRINUSE' ? `Port ${port} is in use. Open the existing Director instance or choose another PORT.` : error.message); process.exitCode = 1; });
-  server.listen(port, '127.0.0.1', () => console.log(`Director V3 · Feedback and Compare · http://127.0.0.1:${port}`));
+  server.listen(port, '127.0.0.1', () => console.log(`Director V4 · Projects and creative libraries · http://127.0.0.1:${port}`));
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => {
     server.close(); server.closeAllConnections();
   });

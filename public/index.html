@@ -1,16 +1,29 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Director V3</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Director V4</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
 <body>
-  <header><h1>Director <small>V3 · Feedback and Compare</small></h1><p>A creative conversation about your work.</p></header>
+  <header><h1>Director <small>V4 · Projects and creative libraries</small></h1><p>A creative conversation about your work.</p></header>
   <p class="notice">Completed feedback and replies save automatically on this Mac. Reopen a session from History to continue. Unsent drafts are not saved.</p>
   <div class="mode-control"><label for="mode">Session type</label><select id="mode"><option value="feedback">Feedback · one image</option><option value="compare">Compare · Image A and Image B</option></select></div>
   <section class="history" aria-labelledby="history-heading">
     <details id="history-panel" open><summary id="history-heading">History</summary>
       <button id="refresh-history" type="button">Refresh history</button>
       <p id="history-status" class="muted" role="status">Loading saved sessions…</p>
-      <ul id="history-list"></ul>
+      <ul id="history-list" class="session-list"></ul>
     </details>
+  </section>
+  <section id="organisation" class="history" aria-labelledby="organisation-heading">
+    <details id="organisation-panel"><summary id="organisation-heading">Projects and Libraries</summary>
+      <button id="create-project" type="button">Create Project</button><button id="refresh-organisation" type="button">Refresh organisation</button>
+      <label for="organisation-view">Browse</label><select id="organisation-view"><option value="">Choose a Project or Library</option></select>
+      <div id="project-actions" hidden><button id="rename-project" type="button">Rename Project</button><button id="delete-project" type="button">Delete Project</button></div>
+      <p id="organisation-status" class="muted" role="status"></p>
+      <ul id="organisation-list" class="session-list"></ul>
+    </details>
+    <div id="organise-panel" hidden>
+      <h3 id="organise-heading">Organise session</h3><p class="muted">Tick a Library or Project to add this session. Unticking removes only its membership. It stays in History.</p>
+      <div id="membership-options"></div><button id="close-organise" type="button">Done organising</button>
+    </div>
   </section>
   <main>
     <section class="source" aria-labelledby="source-heading">
@@ -41,6 +54,7 @@
       <h2 id="feedback-heading">3. Feedback</h2>
       <p id="session-info" class="muted">Select an image and a prompt to begin.</p>
       <p id="save-status" class="muted" role="status"></p>
+      <button id="organise-current" type="button" hidden>Organise this session</button>
       <div id="status" role="status" aria-live="polite"></div>
       <button id="cancel" type="button" hidden>Cancel request</button>
       <div id="error" role="alert" hidden></div>

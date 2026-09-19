@@ -106,7 +106,7 @@ test('Concurrent store connections reject stale updates and cannot resurrect del
   } finally { a.close(); b.close(); }
 });
 test('Unsupported database versions are rejected without resetting existing data', t => {
-  const path = disk(t), store = new SessionStore(path); store.create(fixture()); store.db.exec('PRAGMA user_version=3'); store.close();
+  const path = disk(t), store = new SessionStore(path); store.create(fixture()); store.db.exec('PRAGMA user_version=4'); store.close();
   assert.throws(() => new SessionStore(path), /newer Director version/);
 });
 test('Chat HTTP uses saved context, retries idempotently, and model errors preserve saved turns', async t => {

@@ -25,10 +25,14 @@ button.primary { background: #263e52; color: white; border-color: #263e52; } but
 [hidden] { display: none !important; }
 .history { margin-top: 20px; padding: 16px 24px; background: white; border: 1px solid #d9d9d6; border-radius: 6px; }
 .history details { margin: 0; } .history summary { font-size: 19px; font-weight: 600; }
-#history-list { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
-#history-list li { border-top: 1px solid #e8e8e8; padding: 12px 0; display: flex; gap: 16px; justify-content: space-between; align-items: center; }
-#history-list .history-description { min-width: 0; overflow-wrap: anywhere; } #history-list p { margin: 4px 0; }
-#history-list .history-actions { flex-shrink: 0; } #history-list button { margin-top: 0; }
-#history-list li[aria-current="true"] { background: #eef3f7; }
-@media (max-width: 760px) { #history-list li { display: block; } #history-list .history-actions { margin-top: 10px; } .history { padding: 16px 18px; } }
+.session-list { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; }
+.session-list li { border-top: 1px solid #e8e8e8; padding: 12px 0; display: flex; gap: 16px; justify-content: space-between; align-items: center; }
+.session-list .history-description { min-width: 0; overflow-wrap: anywhere; } .session-list p { margin: 4px 0; }
+.session-list .history-actions { flex-shrink: 0; } .session-list button { margin-top: 0; }
+.session-list li[aria-current="true"] { background: #eef3f7; }
+@media (max-width: 760px) { .session-list li { display: block; } .session-list .history-actions { margin-top: 10px; } .history { padding: 16px 18px; } }
 @media (max-width: 760px) { body { padding: 16px; } main { grid-template-columns: 1fr; gap: 18px; } .source { position: static; max-height: none; } main > section { padding: 18px; } header small { display: block; margin: 4px 0; } }
+
+#organisation-view { max-width: 520px; }
+#organise-panel { border-top: 1px solid #d9d9d6; margin-top: 16px; padding-top: 4px; }
+#membership-options label { font-weight: 400; } #membership-options input { margin-right: 8px; }
