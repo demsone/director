@@ -2,11 +2,47 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { AppError, prompts, getPrompt, requireText, originalMessages, reviewSchema, parseFeedback, chatMessages, systemInstruction } from './src/core.mjs';
+import { AppError, prompts, getPrompt, requireText, originalMessages, reviewSchema, parseFeedback, findCritiquePolicyViolations, chatMessages, systemInstruction } from './src/core.mjs';
 import { createModelClient } from './src/model.mjs';
 import { SessionStore, uploadImage } from './src/store.mjs';
 
 const files = new Map([['/', ['index.html', 'text/html']], ['/app.js', ['app.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']]]);
+async function generateStructuredReview({ client, model, image, imageB, prompt, signal }) {
+  const format = reviewSchema(prompt);
+  const messages = originalMessages(image, prompt, systemInstruction, imageB);
+  const first = await client.complete({ model, messages, format, signal });
+  const firstFeedback = parseFeedback(first.raw, prompt);
+  const violations = findCritiquePolicyViolations(firstFeedback);
+  if (!violations.length) return { reply: first, feedback: firstFeedback };
+
+  const correction = await client.complete({
+    model,
+    messages: [
+      ...messages,
+      { role: 'assistant', content: first.raw },
+      { role: 'user', content: [
+        "The previous review violates Director's critique policy.",
+        '',
+        'Rewrite the complete review.',
+        '',
+        'The following text MUST NOT be repeated or paraphrased as a claim about image-making intent, circumstance, or photographer action:',
+        ...violations.map(({ sectionNumber, heading, excerpt, label }) => `Section ${sectionNumber} — ${heading}:\n"${excerpt}"\nViolation: ${label}`),
+        '',
+        'Describe only the visible effect instead.',
+        '',
+        'Preserve useful visual observations, but remove unsupported claims about intent, accident, staging, planning, posing, spontaneity, timing or circumstance.',
+        '',
+        'Return the complete replacement review using the same schema and all required sections. Return only the replacement structured review.'
+      ].join('\n') }
+    ],
+    format,
+    signal
+  });
+  const correctedFeedback = parseFeedback(correction.raw, prompt);
+  const remaining = findCritiquePolicyViolations(correctedFeedback);
+  if (remaining.length) throw new AppError('The model could not produce a critique compliant with Director’s critique policy.', 502, { raw: correction.raw });
+  return { reply: correction, feedback: correctedFeedback };
+}
 async function readBody(req) {
   if (!req.headers['content-type']?.startsWith('application/json')) throw new AppError('Expected JSON.', 415);
   let length = 0; const chunks = [];
@@ -73,8 +109,7 @@ export function createApp({ client = createModelClient(), store = new SessionSto
         if (type === 'compare' && (!body.image || !body.imageB)) throw new AppError('Choose both Image A and Image B before comparing.');
         const image = uploadImage(body.image), imageB = type === 'compare' ? uploadImage(body.imageB) : null, prompt = getPrompt(body.promptId, type);
         const model = requireText(body.model, 'Model', 300);
-        const reply = await client.complete({ model, messages: originalMessages(image, prompt, systemInstruction, imageB), format: reviewSchema(prompt), signal: abort.signal });
-        const feedback = parseFeedback(reply.raw, prompt);
+        const { reply, feedback } = await generateStructuredReview({ client, model, image, imageB, prompt, signal: abort.signal });
         const now = new Date().toISOString();
         if (abort.signal.aborted) throw new AppError('Request cancelled.', 499);
         const title = (type === 'compare' ? `${image.name} / ${imageB.name}` : image.name).slice(0, 200);

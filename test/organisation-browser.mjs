@@ -13,6 +13,9 @@ import { v3Modules } from './helpers/v3-fixture.mjs';
 if (!process.env.PLAYWRIGHT_PATH) throw new Error('Set PLAYWRIGHT_PATH to an installed Playwright index.mjs.');
 const { chromium } = await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_PATH)));
 const port = Number(process.env.DIRECTOR_V4_TEST_PORT || 4185), base = `http://127.0.0.1:${port}`;
+const testModel =
+  process.env.DIRECTOR_TEST_MODEL ||
+  'qwen3-vl-8b-instruct';
 const directory = await mkdtemp(join(tmpdir(), 'director-v4-live-')), evidence = resolve('verification/v4');
 await mkdir(evidence, { recursive: true });
 const old = await v3Modules(directory), legacy = new old.SessionStore(join(directory, 'sessions.sqlite'));
@@ -23,7 +26,7 @@ const sourceA = `data:image/jpeg;base64,${(await readFile('assets/img/image.jpg.
 const sourceB = `data:image/png;base64,${(await readFile('verification/v4/v3-regression/image-b-test-fixture.png')).toString('base64')}`;
 function fixture(type) {
   const now = new Date().toISOString(), comparison = type === 'compare';
-  return { id: randomUUID(), type, title: comparison ? 'Old Compare' : 'Old Feedback', createdAt: now, updatedAt: now, image: { name: 'source-a.jpg', dataUrl: sourceA, sourceDataUrl: sourceA }, ...(comparison ? { imageB: { name: 'source-b.png', dataUrl: sourceB, sourceDataUrl: sourceB } } : {}), prompt: old.getPrompt(comparison ? 'compare-general' : 'photography-review', type), systemInstruction: old.systemInstruction, model: 'qwen3-vl-8b-instruct', feedback: comparison ? compareReport.feedback : feedbackReport.feedback, chat: comparison ? compareReport.chat : feedbackReport.priorChat };
+  return { id: randomUUID(), type, title: comparison ? 'Old Compare' : 'Old Feedback', createdAt: now, updatedAt: now, image: { name: 'source-a.jpg', dataUrl: sourceA, sourceDataUrl: sourceA }, ...(comparison ? { imageB: { name: 'source-b.png', dataUrl: sourceB, sourceDataUrl: sourceB } } : {}), prompt: old.getPrompt(comparison ? 'compare-general' : 'photography-review', type), systemInstruction: old.systemInstruction, model: testModel, feedback: comparison ? compareReport.feedback : feedbackReport.feedback, chat: comparison ? compareReport.chat : feedbackReport.priorChat };
 }
 const single = legacy.create(fixture('feedback')), pair = legacy.create(fixture('compare'));
 legacy.close();
@@ -38,7 +41,12 @@ async function start() {
 async function stop() { if(!server || server.exitCode!==null) return; const done=once(server,'exit');server.kill('SIGTERM');const timeout=setTimeout(()=>server.kill('SIGKILL'),5000);await done;clearTimeout(timeout);await assert.rejects(fetch(base+'/api/health')); }
 async function openBrowser() {
   browser=await chromium.launch({headless:true});page=await browser.newPage({viewport:{width:1440,height:1100}});page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
-  await page.waitForFunction(()=>document.querySelectorAll('#prompt option').length===3 && document.querySelectorAll('#organisation-view option').length===3);
+  await page.waitForFunction(()=>{
+    const prompt=document.querySelector('#prompt'), organisation=document.querySelector('#organisation-view');
+    if (!prompt || !organisation || prompt.querySelectorAll('option').length < 3) return false;
+    const values=new Set([...organisation.options].map(option=>option.value));
+    return values.has('libraries/photography') && values.has('libraries/design');
+  });
 }
 async function restart() { await browser.close();await stop();await start();await openBrowser(); }
 async function settled() { await page.waitForFunction(()=>document.querySelector('#cancel').hidden && !document.querySelector('#refresh-history').disabled); }
@@ -104,7 +112,7 @@ try {
   await browser.close();browser=null;await stop();
   const store=new SessionStore(join(directory,'sessions.sqlite'));
   try {assert.equal(store.db.prepare('SELECT count(*) n FROM assets').get().n,2);assert.deepEqual(store.db.prepare('PRAGMA foreign_key_check').all(),[]);assert.equal(store.db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');result.assetCount=2;result.integrityCheck='ok';}finally{store.close();}
-  assert.deepEqual(errors,[]);result.passed=true;result.consoleErrors=errors;result.model='qwen3-vl-8b-instruct';
+  assert.deepEqual(errors,[]);result.passed=true;result.consoleErrors=errors;result.model=testModel;
 } catch(error) {result.error=error.stack;console.error(error);process.exitCode=1;if(browser)await page.screenshot({path:join(evidence,'organisation-failure.png'),fullPage:true}).catch(()=>{});}
 finally {await browser?.close();await stop();await writeFile(join(evidence,'organisation-browser-report.json'),JSON.stringify(result,null,2));if(result.passed)await rm(directory,{recursive:true,force:true});else console.log('Retained test data: '+directory);}
 console.log(JSON.stringify(result,null,2));

@@ -60,6 +60,30 @@ export function parseFeedback(raw, prompt) {
   }
   return { raw, sections: prompt.sections.map((heading, i) => ({ heading, content: parsed[`section_${i+1}`] })) };
 }
+const structuredCritiquePolicyRules = [
+  ['the prohibited word “candid”', /\bcandid\b/i],
+  ['unsupported intentional image-making claims', /\bintent(?:ional(?:ly)?|ion(?:al(?:ly)?)?)\b/i],
+  ['unsupported accidental image-making claims', /\baccident(?:al(?:ly)?)\b/i],
+  ['unsupported deliberate image-making claims', /\bdeliberat(?:e|ed|ely|ion)\b/i],
+  ['unsupported staged or planned image-making claims', /\b(?:stag(?:e|ed|ing)|plan(?:ned|ning)?|unplan(?:ned|ning)?)\b/i],
+  ['unsupported posed or spontaneous image-making claims', /\b(?:pos(?:e|ed|ing)|spontaneous(?:ly)?)\b/i],
+  ['unsupported timing or photographer-action claims', /\bperfectly\s+timed\b|\bcaptured\s+more\s+deliberately\b|\byou\s+(?:waited\s+for|meant\s+to)\b/i],
+  ['unsupported circumstance or chance claims', /\b(?:caused|arranged)\s+by\s+(?:circumstance|chance)\b|\bby\s+(?:circumstance|chance)\b|\bnot\s+(?:by\s+)?design\b/i]
+];
+
+export function findCritiquePolicyViolations(feedback) {
+  if (!Array.isArray(feedback?.sections)) return [];
+  const violations = [];
+  for (const [sectionIndex, section] of feedback.sections.entries()) {
+    for (const [label, pattern] of structuredCritiquePolicyRules) {
+      const matcher = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+      for (const match of section.content.matchAll(matcher)) {
+        violations.push({ sectionNumber: sectionIndex + 1, heading: section.heading, excerpt: match[0], label });
+      }
+    }
+  }
+  return violations;
+}
 export function chatMessages(session, message) {
   if (!session || typeof session !== 'object') throw new AppError('Generate feedback before chatting.');
   const image = validateImage(session.image);

@@ -4,13 +4,15 @@ import http from 'node:http';
 import { createApp } from '../server.mjs';
 import { createModelClient } from '../src/model.mjs';
 import { SessionStore } from '../src/store.mjs';
-import { getPrompt, prompts, reviewSchema, parseFeedback, chatMessages, validateImage } from '../src/core.mjs';
+import { getPrompt, prompts, reviewSchema, parseFeedback, findCritiquePolicyViolations, chatMessages, validateImage } from '../src/core.mjs';
 
 const image = { name: 'test.png', dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' };
+const imageB = { ...image, name: 'test-b.png' };
 const rawFor = prompt => JSON.stringify(Object.fromEntries(prompt.sections.map((heading, i) => [`section_${i+1}`, `Visible observation for ${heading}`])));
 async function listen(t, server) { await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); })); return `http://127.0.0.1:${server.address().port}`; }
 async function post(base, path, body, headers = {}) { const response = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) }); return { status: response.status, body: await response.json() }; }
 function fixture() { const prompt = getPrompt('photography-review'); return { image, prompt, model: 'vision', feedback: parseFeedback(rawFor(prompt), prompt), chat: [] }; }
+function policyRaw(prompt, sentence) { return JSON.stringify(Object.fromEntries(prompt.sections.map((heading, i) => [`section_${i + 1}`, `${sentence} ${heading}.`]))); }
 
 test('Prompt data defines all three categories, ordered schema and complete review rendering', () => {
   assert.deepEqual(prompts.filter(p => !p.sessionType).map(p => p.category), ['Photography', 'Design', 'General']);
@@ -71,6 +73,55 @@ test('Provider errors return review raw text without manufacturing a successful 
   const base = await listen(t, createApp({ client: { complete: async () => ({ raw: '{"section_1":"incomplete"}' }) }, store: new SessionStore(':memory:') }));
   const response = await post(base, '/api/feedback', { image, model: 'vision', promptId: 'photography-review' });
   assert.equal(response.status, 502); assert.equal(response.body.raw, '{"section_1":"incomplete"}'); assert.equal(response.body.session, undefined);
+});
+test('Critique-policy validator reports each section, exact excerpt and rule label', () => {
+  const prompt = getPrompt('photography-review');
+  const feedback = parseFeedback(JSON.stringify({
+    section_1: 'The static, intentional geometry creates a clear visual effect.',
+    ...Object.fromEntries(prompt.sections.slice(1).map((heading, i) => [`section_${i + 2}`, `Visible observation for ${heading}`]))
+  }), prompt);
+  assert.deepEqual(findCritiquePolicyViolations(feedback), [{
+    sectionNumber: 1,
+    heading: prompt.sections[0],
+    excerpt: 'intentional',
+    label: 'unsupported intentional image-making claims'
+  }]);
+});
+async function policyRequest(t, { type = 'feedback', first, second }) {
+  const prompt = getPrompt(type === 'compare' ? 'compare-general' : 'photography-review', type), calls = [];
+  const store = new SessionStore(':memory:');
+  const client = { complete: async request => { calls.push(request); return { raw: (calls.length === 1 ? first : second) ?? first, model: 'vision' }; } };
+  const base = await listen(t, createApp({ client, store }));
+  const body = { image, promptId: prompt.id, model: 'vision', ...(type === 'compare' ? { imageB } : {}) };
+  return { prompt, calls, store, response: await post(base, `/api/${type}`, body) };
+}
+test('Structured critique policy enforcement retries only violating Feedback and Compare reviews', async t => {
+  await t.test('A. retries a candid review and saves only the compliant replacement', async t => {
+    const prompt = getPrompt('photography-review');
+    const result = await policyRequest(t, { first: policyRaw(prompt, 'The candid frame shows a visible shape.'), second: rawFor(prompt) });
+    assert.equal(result.response.status, 200); assert.equal(result.calls.length, 2); assert.match(result.calls[1].messages[3].content, /Section 1 — First impression:[\s\S]*"candid"[\s\S]*Violation: the prohibited word “candid”/); assert.equal(result.response.body.session.feedback.raw, rawFor(prompt));
+    assert.equal(result.store.list().length, 1); assert.equal(result.response.body.session.feedback.raw, rawFor(prompt));
+  });
+  await t.test('B. retries unsupported intent and circumstance language', async t => {
+    const prompt = getPrompt('photography-review');
+    const result = await policyRequest(t, { first: policyRaw(prompt, 'The objects were arranged by circumstance, not design.'), second: rawFor(prompt) });
+    assert.equal(result.response.status, 200); assert.equal(result.calls.length, 2); assert.match(result.calls[1].messages[3].content, /"arranged by circumstance"/); assert.match(result.calls[1].messages[3].content, /"not design"/); assert.equal(result.store.list().length, 1); assert.equal(result.response.body.session.feedback.raw, rawFor(prompt));
+  });
+  await t.test('C. rejects a second violating review without creating a session', async t => {
+    const prompt = getPrompt('photography-review'), second = policyRaw(prompt, 'This was deliberately staged.');
+    const result = await policyRequest(t, { first: policyRaw(prompt, 'This was intentional.'), second });
+    assert.equal(result.response.status, 502); assert.match(result.response.body.error, /could not produce a critique compliant/i); assert.equal(result.response.body.raw, second); assert.equal(result.store.list().length, 0); assert.equal(result.calls.length, 2);
+  });
+  await t.test('D. keeps the compliant path to one model call', async t => {
+    const prompt = getPrompt('photography-review');
+    const result = await policyRequest(t, { first: rawFor(prompt) });
+    assert.equal(result.response.status, 200); assert.equal(result.calls.length, 1); assert.equal(result.store.list().length, 1);
+  });
+  await t.test('E. uses the same enforcement path for Compare', async t => {
+    const prompt = getPrompt('compare-general', 'compare');
+    const result = await policyRequest(t, { type: 'compare', first: policyRaw(prompt, 'Image A was candid and Image B was posed.'), second: rawFor(prompt) });
+    assert.equal(result.response.status, 200); assert.equal(result.calls.length, 2); assert.equal(result.store.list().length, 1); assert.equal(result.response.body.session.type, 'compare'); assert.equal(result.response.body.session.feedback.raw, rawFor(prompt));
+  });
 });
 async function provider(t, reply, { slow = false } = {}) {
   const captured = [];
