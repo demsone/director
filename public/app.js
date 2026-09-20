@@ -92,13 +92,16 @@ function renderChatError(root) {
   const editor = firstNamed('Prompt / Editor', section);
   if (!section || !editor) return;
   let node = firstNamed('chat-transient-error', section);
+  const transcript = firstNamed('chat-transcript', section);
+  const emptyTranscript = !(session?.chat || []).length;
+  section.classList.toggle('director-chat-error-layout', Boolean(chatError && emptyTranscript));
   if (!chatError) { node?.remove(); return; }
   if (!node) {
     node = document.createElement('div');
     node.dataset.name = 'chat-transient-error';
     node.className = 'director-chat-transient-error';
-    section.insertBefore(node, editor);
   }
+  section.insertBefore(node, transcript || editor);
   node.textContent = chatError;
   node.setAttribute('role', 'alert');
   node.setAttribute('aria-live', 'assertive');
