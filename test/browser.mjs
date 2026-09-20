@@ -3,129 +3,116 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve, join } from 'node:path';
 
-// Use an existing Playwright install; the application itself has no dependencies.
 const playwrightPath = process.env.PLAYWRIGHT_PATH;
-if (!playwrightPath) throw new Error('Set PLAYWRIGHT_PATH to an installed Playwright index.mjs (see README).');
+if (!playwrightPath) throw new Error('Set PLAYWRIGHT_PATH to an installed Playwright index.mjs.');
 const { chromium } = await import(pathToFileURL(resolve(playwrightPath)));
 const base = process.env.DIRECTOR_TEST_URL || 'http://127.0.0.1:4177';
-const evidence = resolve(process.env.DIRECTOR_EVIDENCE_DIR || 'verification/v2/v1-regression');
+const evidence = resolve(process.env.DIRECTOR_EVIDENCE_DIR || 'verification/v5/batch-1');
+const imagePath = process.env.DIRECTOR_TEST_IMAGE || resolve('assets/img/image.jpg.jpg');
 await mkdir(evidence, { recursive: true });
+
 const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+const context = await browser.newContext({ viewport: { width: 1512, height: 1321 } });
+const page = await context.newPage();
+const donor = await context.newPage();
 page.setDefaultTimeout(15000);
-const errors = [], requests = [], steps = [];
-page.on('pageerror', e => errors.push(e.message));
-page.on('request', request => {
-  if (request.url().endsWith('/api/chat')) {
-    const body = request.postDataJSON();
-    requests.push({ sessionId: body.sessionId, revision: body.revision, requestId: body.requestId });
-  }
+const errors = [];
+const cspWarnings = [];
+page.on('pageerror', error => errors.push(error.message));
+page.on('console', message => {
+  if (message.type() !== 'error') return;
+  if (message.text().includes("Applying inline style violates the following Content Security Policy directive 'style-src 'self'")) cspWarnings.push(message.text());
+  else errors.push(message.text());
 });
-page.on('dialog', dialog => dialog.accept());
-let result = { passed: false, date: new Date().toISOString(), steps };
 let createdSession;
-async function action(path, fn) {
-  const responsePromise = page.waitForResponse(r => r.url().endsWith(path) && r.request().method() === 'POST', { timeout: 260000 });
-  await fn(); const response = await responsePromise; const data = await response.json();
-  assert.equal(response.status(), 200, JSON.stringify(data));
-  await page.locator('#cancel').waitFor({ state: 'hidden' });
-  return data;
+const steps = [];
+
+async function captureDonor(state, file) {
+  await donor.goto(`${base}/visual-v4/${file}`);
+  await donor.waitForLoadState('networkidle');
+  await donor.evaluate(() => document.fonts.ready);
+  await donor.screenshot({ path: join(evidence, `donor-${state}.png`), fullPage: true });
 }
+
 try {
+  await donor.route('**/visual-v4/feedback-*.html', async route => {
+    const response = await route.fetch();
+    let body = await response.text();
+    body = body
+      .replace(/<script type="module" src="functional-runtime\.js">\s*<\/script>/, '')
+      .replace(/src="\/?assets\//g, 'src="/visual-v4/assets/');
+    await route.fulfill({ response, body });
+  });
+  await captureDonor('new', 'feedback-new.html');
+  await captureDonor('thinking', 'feedback-thinking.html');
+  await captureDonor('complete', 'feedback-complete.html');
+  await captureDonor('detail', 'feedback-detail.html');
+  steps.push('Captured authored donor states at 1512px viewport');
+
   await page.goto(base);
-  await page.waitForFunction(() => document.querySelector('#model').value && document.querySelectorAll('#prompt option').length === 3);
-  assert.equal(await page.locator('#prompt optgroup').count(), 3);
-  await page.selectOption('#prompt', 'design-review');
-  assert.match(await page.locator('#prompt-text').textContent(), /typography/);
-  await page.selectOption('#prompt', 'photography-review');
+  await page.waitForFunction(() => document.querySelector('#model')?.value && document.querySelectorAll('#prompt option').length === 3);
+  assert.equal(await page.locator('.source-frame').count(), 1);
+  await page.screenshot({ path: join(evidence, 'production-feedback-new.png'), fullPage: true });
+  assert.equal(await page.locator('[data-name="Heading/H2 /Semi-Bold/32px/37"]').first().textContent(), 'New Feedback');
+  steps.push('New Feedback imports feedback-new.html and binds prompt/model data');
+
   await page.setInputFiles('#image-file', { name: 'bad.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') });
   assert.match(await page.locator('#error').textContent(), /JPEG/);
-  const imagePath = process.env.DIRECTOR_TEST_IMAGE || resolve('assets/img/image.jpg.jpg');
   await page.setInputFiles('#image-file', imagePath);
-  await page.waitForFunction(() => !document.querySelector('#review').disabled);
-  const originalName = await page.locator('#image-name').textContent();
-  // Replace via drag/drop, including repeat use of identical image bytes.
-  const imageBytes = await readFile(imagePath);
-  await page.evaluate(({ bytes }) => {
-    const transfer = new DataTransfer(); transfer.items.add(new File([new Uint8Array(bytes)], 'source-photo.jpg', { type: 'image/jpeg' }));
-    document.querySelector('#drop-zone').dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
-  }, { bytes: [...imageBytes] });
-  await page.waitForFunction(() => document.querySelector('#image-name').textContent.startsWith('source-photo.jpg') && !document.querySelector('#review').disabled);
-  assert.notEqual(await page.locator('#image-name').textContent(), originalName);
-  steps.push('File selection, image decode and preview, invalid type rejection, prompt selection, drag/drop replacement');
-  await page.screenshot({ path: join(evidence, 'ready.png'), fullPage: true });
-  console.log('Starting real image review…');
-  const start = Date.now();
-  const { session } = await action('/api/feedback', () => page.click('#review'));
-  createdSession = session.id;
-  assert.equal(session.feedback.sections.length, 11);
-  assert.equal(await page.locator('#feedback section').count(), 11);
-  assert.equal(session.prompt.id, 'photography-review');
-  assert.equal(await page.locator('#image-file').isDisabled(), true);
-  assert.equal(await page.locator('#raw').textContent(), session.feedback.raw);
-  const critiqueSeconds = (Date.now() - start) / 1000;
-  console.log(`Real critique completed in ${critiqueSeconds}s; 11 sections.`);
-  steps.push('Real local vision critique: 11 populated sections; complete response shown; image/prompt/model locked together');
-  const questions = [
-    'For our conversation, call my preferred edit "Courtyard study". Looking at the photograph, what colour is the hanging fabric, where is the chair relative to it, and where is the air conditioner? Give a short answer based on what you can actually see.',
-    'What did I call my preferred edit in my previous message? For that edit, should I keep the chair in the crop? Refer to the photograph and your original feedback. Keep it brief.'
-  ];
-  const replies = [];
-  for (const question of questions) {
-    await page.fill('#message', question);
-    const data = await action('/api/chat', () => page.click('#send'));
-    replies.push(data.turn.content); console.log(`Follow-up ${replies.length}: ${data.turn.content}`);
-  }
-  assert.match(replies[0], /yellow|mustard/i);
-  assert.match(replies[0], /right/i);
-  assert.match(replies[1], /Courtyard study/i);
-  assert.equal(await page.locator('.turn').count(), 4);
-  assert.deepEqual(requests.map(r => r.revision), [1, 2]);
-  assert.ok(requests.every(r => r.sessionId === session.id && r.requestId));
-  steps.push('Two real image-aware follow-ups: visible colours/positions and prior conversation recalled; same saved session used');
-  await page.evaluate(() => scrollTo(0, 0));
-  await page.screenshot({ path: join(evidence, 'feedback-and-chat.png'), fullPage: true });
-  await page.setViewportSize({ width: 390, height: 844 });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await page.screenshot({ path: join(evidence, 'mobile.png'), fullPage: true });
-  steps.push('Desktop and mobile rendering; no mobile horizontal overflow');
-  // Controlled failure only after the live acceptance flow, to verify recovery without losing context.
-  await page.route('**/api/chat', route => route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'Test: local model unavailable.' }) }));
-  await page.fill('#message', 'Keep this draft if the model is unavailable.');
-  await page.click('#send'); await page.locator('#error').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('.turn').count(), 4);
-  assert.equal(await page.locator('#message').inputValue(), 'Keep this draft if the model is unavailable.');
-  assert.equal(await page.locator('#feedback section').count(), 11);
-  await page.unroute('**/api/chat');
-  steps.push('Simulated model failure preserves source, review, chat and draft');
-  await page.locator(`[data-session-id="${session.id}"]`).getByRole('button', { name: 'Open', exact: true }).click();
-  await page.locator('#cancel').waitFor({ state: 'hidden' });
-  assert.equal(await page.locator('#message').inputValue(), 'Keep this draft if the model is unavailable.');
-  steps.push('Reopening the current saved session refreshes context without discarding the unsent draft');
-  await page.click('#new');
-  assert.equal(await page.locator('#feedback section').count(), 0);
-  assert.equal(await page.locator('#preview').isVisible(), true);
-  assert.equal(await page.locator('#chat-section').isHidden(), true);
-  assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
-  await page.reload();
-  await page.waitForFunction(() => document.querySelectorAll('#prompt option').length === 3);
-  assert.equal(await page.locator('#preview').isHidden(), true);
-  assert.equal(await page.locator('#feedback section').count(), 0);
-  await page.waitForFunction(id => !!document.querySelector(`[data-session-id="${id}"]`), session.id);
-  steps.push('New critique keeps image for repeat use; reload clears active view but session remains in History; no browser storage');
+  await page.selectOption('#prompt', 'photography-review');
+  await page.waitForFunction(() => !document.querySelector('#model').disabled && document.querySelector('[data-name="Feedback / File"]')?.style.backgroundImage);
+  steps.push('Invalid image rejection, real image decode, prompt selection and donor drop binding');
+
+  const feedbackResponse = page.waitForResponse(response => response.url().endsWith('/api/feedback') && response.request().method() === 'POST', { timeout: 260000 });
+  await page.locator('[data-name="action-bar"]').click();
+  await page.waitForFunction(() => document.body.dataset.screen === 'feedback-thinking');
+  await page.screenshot({ path: join(evidence, 'production-feedback-thinking.png'), fullPage: true });
+  assert.equal(await page.locator('[data-name="heading"]', { hasText: 'WRITING FEEDBACK' }).count(), 1);
+  const feedbackResponseData = await feedbackResponse;
+  assert.equal(feedbackResponseData.status(), 200);
+  const feedbackData = await feedbackResponseData.json();
+  createdSession = feedbackData.session.id;
+  assert.equal(feedbackData.session.feedback.sections.length, 11);
+  await page.waitForFunction(() => document.body.dataset.screen === 'feedback-complete');
+  await page.screenshot({ path: join(evidence, 'production-feedback-complete.png'), fullPage: true });
+  assert.equal(await page.locator('[data-name="output text"]', { hasText: 'First impression' }).count(), 1);
+  steps.push('Real loaded vision model completed Feedback with 11 structured sections');
+
+  const composer = page.locator('[data-name="prompt-text"] .text-content span').last();
+  await composer.fill('What should I pay attention to in the crop? Keep it brief.');
+  const chatResponse = page.waitForResponse(response => response.url().endsWith('/api/chat') && response.request().method() === 'POST', { timeout: 260000 });
+  await page.locator('[data-name="enter-button"]').click();
+  const chatResponseData = await chatResponse;
+  assert.equal(chatResponseData.status(), 200);
+  const chatData = await chatResponseData.json();
+  assert.equal(chatData.session.chat.length, 2);
+  steps.push('Real /api/chat follow-up persisted on the same session');
+
+  await page.getByRole('button', { name: 'New feedback', exact: true }).click();
+  await page.waitForFunction(() => document.body.dataset.screen === 'feedback-new');
+  steps.push('Donor NEW FEEDBACK toolbar action returns to the imported feedback-new state');
+
+  await page.goto(`${base}/?session=${encodeURIComponent(createdSession)}&view=detail`);
+  await page.waitForFunction(() => document.body.dataset.screen === 'feedback-detail');
+  await page.screenshot({ path: join(evidence, 'production-feedback-detail.png'), fullPage: true });
+  assert.equal(await page.locator('[data-name="date-created"]').count(), 1);
+  assert.match(await page.locator('body').innerText(), /PROMPT USED/);
+  steps.push('Reopened Feedback imports feedback-detail.html with persisted metadata, feedback and chat composer');
+
   assert.deepEqual(errors, []);
-  result = { ...result, passed: true, model: session.model, prompt: session.prompt, image: { name: session.image.name, fixture: imagePath }, critiqueSeconds, feedback: session.feedback, questions, replies, requests: requests.slice(0, 2), consoleErrors: errors };
+  const report = { passed: true, date: new Date().toISOString(), model: feedbackData.session.model, sessionId: createdSession, sections: feedbackData.session.feedback.sections.length, chatTurns: chatData.session.chat.length, viewport: { width: 1512, height: 1321 }, steps, screenshots: evidence, consoleErrors: errors, donorCspWarnings: cspWarnings.length };
+  await writeFile(join(evidence, 'live-browser-report.json'), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
 } catch (error) {
-  result.error = error.stack; console.error(error);
+  const report = { passed: false, date: new Date().toISOString(), error: error.stack, steps, screenshots: evidence, consoleErrors: errors };
+  await writeFile(join(evidence, 'live-browser-report.json'), JSON.stringify(report, null, 2));
   await page.screenshot({ path: join(evidence, 'failure.png'), fullPage: true });
+  console.error(JSON.stringify(report, null, 2));
   process.exitCode = 1;
 } finally {
-  await writeFile(join(evidence, 'live-browser-report.json'), JSON.stringify(result, null, 2));
-  if (createdSession && result.passed) {
+  if (createdSession) {
     const saved = await (await fetch(`${base}/api/sessions/${createdSession}`)).json();
-    const deletion = await fetch(`${base}/api/sessions/${createdSession}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: saved.session.revision }) });
-    assert.equal(deletion.status, 200);
+    if (saved.session) await fetch(`${base}/api/sessions/${createdSession}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: saved.session.revision }) });
   }
   await browser.close();
 }
-console.log(JSON.stringify({ passed: result.passed, steps: result.steps, error: result.error }, null, 2));

@@ -1,73 +1,15 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Director V4</title><link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Director</title>
+<link rel="stylesheet" href="/visual-v4/tokens.css">
+<link rel="stylesheet" href="/visual-v4/visual.css">
+<link rel="stylesheet" href="/style.css">
+<script type="module" src="/app.js"></script>
+</head>
 <body>
-  <header><h1>Director <small>V4 · Projects and creative libraries</small></h1><p>A creative conversation about your work.</p></header>
-  <p class="notice">Completed feedback and replies save automatically on this Mac. Reopen a session from History to continue. Unsent drafts are not saved.</p>
-  <div class="mode-control"><label for="mode">Session type</label><select id="mode"><option value="feedback">Feedback · one image</option><option value="compare">Compare · Image A and Image B</option></select></div>
-  <section class="history" aria-labelledby="history-heading">
-    <details id="history-panel" open><summary id="history-heading">History</summary>
-      <button id="refresh-history" type="button">Refresh history</button>
-      <p id="history-status" class="muted" role="status">Loading saved sessions…</p>
-      <ul id="history-list" class="session-list"></ul>
-    </details>
-  </section>
-  <section id="organisation" class="history" aria-labelledby="organisation-heading">
-    <details id="organisation-panel"><summary id="organisation-heading">Projects and Libraries</summary>
-      <button id="create-project" type="button">Create Project</button><button id="refresh-organisation" type="button">Refresh organisation</button>
-      <label for="organisation-view">Browse</label><select id="organisation-view"><option value="">Choose a Project or Library</option></select>
-      <div id="project-actions" hidden><button id="rename-project" type="button">Rename Project</button><button id="delete-project" type="button">Delete Project</button></div>
-      <p id="organisation-status" class="muted" role="status"></p>
-      <ul id="organisation-list" class="session-list"></ul>
-    </details>
-    <div id="organise-panel" hidden>
-      <h3 id="organise-heading">Organise session</h3><p class="muted">Tick a Library or Project to add this session. Unticking removes only its membership. It stays in History.</p>
-      <div id="membership-options"></div><button id="close-organise" type="button">Done organising</button>
-    </div>
-  </section>
-  <main>
-    <section class="source" aria-labelledby="source-heading">
-      <h2 id="source-heading">1. Your image</h2>
-      <div id="drop-zone" class="image-drop">
-        <div id="empty-image">Drop an image here, or choose a file below.</div>
-        <img id="preview" class="image-preview" alt="Selected work" hidden>
-      </div>
-      <label for="image-file">Choose or replace image</label>
-      <input id="image-file" type="file" accept="image/jpeg,image/png,image/webp">
-      <p id="image-name" class="muted">JPEG, PNG or WebP · up to 12 MB</p>
-      <div id="image-b-panel" hidden>
-        <h3>Image B</h3>
-        <div id="drop-zone-b" class="image-drop"><div id="empty-image-b">Drop Image B here, or choose a file below.</div><img id="preview-b" class="image-preview" alt="Image B" hidden></div>
-        <label for="image-file-b">Choose or replace Image B</label><input id="image-file-b" type="file" accept="image/jpeg,image/png,image/webp">
-        <p id="image-name-b" class="muted">JPEG, PNG or WebP · up to 12 MB</p>
-      </div>
-      <h2>2. Review direction</h2>
-      <label for="prompt">Critique prompt</label><select id="prompt"></select>
-      <details><summary>Read selected prompt</summary><p id="prompt-text"></p><ol id="prompt-sections"></ol></details>
-      <label for="model">Loaded vision model</label><select id="model"><option value="">Checking LM Studio…</option></select>
-      <button id="refresh" type="button">Refresh models</button>
-      <p id="model-status" class="muted" role="status"></p>
-      <button id="review" type="button" class="primary" disabled>Get feedback</button>
-      <button id="new" type="button" hidden>New critique</button>
-    </section>
-    <section class="conversation" aria-labelledby="feedback-heading">
-      <h2 id="feedback-heading">3. Feedback</h2>
-      <p id="session-info" class="muted">Select an image and a prompt to begin.</p>
-      <p id="save-status" class="muted" role="status"></p>
-      <button id="organise-current" type="button" hidden>Organise this session</button>
-      <div id="status" role="status" aria-live="polite"></div>
-      <button id="cancel" type="button" hidden>Cancel request</button>
-      <div id="error" role="alert" hidden></div>
-      <details id="failed-response" hidden><summary>Complete response from unsuccessful request</summary><pre id="failed-raw"></pre></details>
-      <article id="feedback"></article>
-      <details id="raw-response" hidden><summary>Complete model response</summary><pre id="raw"></pre></details>
-      <section id="chat-section" hidden aria-labelledby="chat-heading">
-        <h2 id="chat-heading">4. Continue the conversation</h2>
-        <p id="chat-context" class="muted">Director keeps this image, prompt and feedback in context.</p>
-        <div id="chat-log" aria-label="Conversation"></div>
-        <form id="chat-form"><label for="message">Your follow-up</label><textarea id="message" rows="4" maxlength="8000" placeholder="Ask about the crop, an edit, or something you see…" required></textarea><button id="send" class="primary" type="submit">Send message</button></form>
-      </section>
-    </section>
-  </main>
+<div id="director-app"></div>
 </body>
 </html>

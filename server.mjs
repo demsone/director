@@ -1,12 +1,29 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { AppError, prompts, getPrompt, requireText, originalMessages, reviewSchema, parseFeedback, findCritiquePolicyViolations, chatMessages, systemInstruction } from './src/core.mjs';
 import { createModelClient } from './src/model.mjs';
 import { SessionStore, uploadImage } from './src/store.mjs';
 
 const files = new Map([['/', ['index.html', 'text/html']], ['/app.js', ['app.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']]]);
+const visualRoot = resolve(fileURLToPath(new URL('./assets/visual-v4/', import.meta.url)));
+const visualTypes = new Map([
+  ['.html', 'text/html'], ['.css', 'text/css'], ['.js', 'text/javascript'], ['.json', 'application/json'],
+  ['.svg', 'image/svg+xml'], ['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'],
+  ['.webp', 'image/webp'], ['.ttf', 'font/ttf'], ['.woff', 'font/woff'], ['.woff2', 'font/woff2']
+]);
+async function readVisualAsset(path) {
+  let relativePath;
+  try { relativePath = decodeURIComponent(path.slice('/visual-v4/'.length)); }
+  catch { throw new AppError('Not found.', 404); }
+  if (!relativePath || relativePath.includes('\0') || relativePath.includes('\\')) throw new AppError('Not found.', 404);
+  const target = resolve(visualRoot, relativePath);
+  if (target !== visualRoot && !target.startsWith(`${visualRoot}/`)) throw new AppError('Not found.', 404);
+  try { return { body: await readFile(target), type: visualTypes.get(target.slice(target.lastIndexOf('.')).toLowerCase()) || 'application/octet-stream' }; }
+  catch { throw new AppError('Not found.', 404); }
+}
 async function generateStructuredReview({ client, model, image, imageB, prompt, signal }) {
   const format = reviewSchema(prompt);
   const messages = originalMessages(image, prompt, systemInstruction, imageB);
@@ -68,6 +85,10 @@ export function createApp({ client = createModelClient(), store = new SessionSto
       if (!/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(host)) throw new AppError('Local requests only.', 403);
       if (req.headers.origin && req.headers.origin !== `http://${host}`) throw new AppError('Cross-origin requests are not allowed.', 403);
       const path = new URL(req.url, `http://${host}`).pathname;
+      if (req.method === 'GET' && path.startsWith('/visual-v4/')) {
+        const asset = await readVisualAsset(path);
+        res.writeHead(200, { 'Content-Type': `${asset.type}; charset=utf-8` }); return res.end(asset.body);
+      }
       if (req.method === 'GET' && path === '/api/health') return json(200, { app: 'director-v4', schemaVersion: 3 });
       if (req.method === 'GET' && path === '/api/prompts') return json(200, { prompts });
       if (req.method === 'GET' && path === '/api/models') return json(200, { models: await client.models(abort.signal) });

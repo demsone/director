@@ -1,298 +1,418 @@
-const $ = id => document.getElementById(id);
-let prompts = [], image = null, imageB = null, mode = 'feedback', session = null, pending = null, decoding = 0;
-const imageVersion = { A: 0, B: 0 };
-let chatRequest = null;
-let organisation = { projects: [], libraries: [] }, organiseId = null, history = [];
+const app = document.querySelector('#director-app');
+const DONOR_BASE = '/visual-v4/';
+const donorFiles = {
+  new: 'feedback-new.html',
+  thinking: 'feedback-thinking.html',
+  complete: 'feedback-complete.html',
+  detail: 'feedback-detail.html'
+};
 
-function error(message = '', raw = '') {
-  $('error').textContent = message; $('error').hidden = !message;
-  $('failed-raw').textContent = raw; $('failed-response').hidden = !raw;
+let prompts = [];
+let models = [];
+let image = null;
+let session = null;
+let phase = 'new';
+let pending = null;
+let imageVersion = 0;
+let chatRequest = null;
+let promptSelect;
+let modelSelect;
+let imageInput;
+let messageInput;
+let errorNode;
+let statusNode;
+
+const $ = (selector, scope = document) => scope.querySelector(selector);
+const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
+const named = (name, scope = document) => $$('[data-name]', scope).filter(node => node.dataset.name === name);
+const firstNamed = (name, scope = document) => named(name, scope)[0] || null;
+
+function leaf(node) {
+  if (!node) return null;
+  return $('.text-content span', node) || $('.text-content', node) || node;
 }
-function sync() {
-  const busy = !!pending || decoding;
-  for (const id of ['image-file', 'image-file-b', 'prompt', 'model']) $(id).disabled = busy || !!session;
-  $('mode').disabled = busy;
-  $('refresh').disabled = busy;
-  $('review').disabled = busy || !image || (mode === 'compare' && !imageB) || !$('model').value || !$('prompt').value || !!session;
-  $('review').hidden = !!session;
-  $('new').hidden = !session; $('new').disabled = busy;
-  $('send').disabled = busy || !session;
-  $('message').disabled = busy;
-  $('cancel').hidden = !pending;
-  $('chat-section').hidden = !session;
-  $('refresh-history').disabled = busy;
-  for (const button of document.querySelectorAll('.session-list button, #organisation button, #membership-options input, #organisation-view')) button.disabled = busy || button.dataset.unavailable === 'true';
-  $('organise-current').hidden = !session; $('organise-current').disabled = busy;
-  document.body.dataset.mode = mode;
-  $('image-b-panel').hidden = mode !== 'compare';
-  $('source-heading').textContent = mode === 'compare' ? '1. Image A' : '1. Your image';
-  $('feedback-heading').textContent = mode === 'compare' ? '3. Comparative feedback' : '3. Feedback';
-  $('review').textContent = mode === 'compare' ? 'Compare images' : 'Get feedback';
-  $('new').textContent = mode === 'compare' ? 'New comparison' : 'New critique';
-  $('chat-context').textContent = mode === 'compare' ? 'Director keeps Image A, Image B, the comparison prompt and feedback in context.' : 'Director keeps this image, prompt and feedback in context.';
+
+function setText(node, value) {
+  const target = leaf(node);
+  if (target) target.textContent = String(value ?? '');
 }
+
+function normalized(value) { return String(value || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
+function nodeText(node) { return node?.textContent?.replace(/\s+/g, ' ').trim() || ''; }
+
+function setError(message = '', raw = '') {
+  if (errorNode) { errorNode.textContent = message; errorNode.hidden = !message; }
+  const rawNode = $('#failed-raw');
+  if (rawNode) rawNode.textContent = raw;
+}
+
+function setStatus(message = '') { if (statusNode) statusNode.textContent = message; }
+
 async function api(path, body, signal, method = body ? 'POST' : 'GET') {
-  const response = await fetch(path, { method, ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}), signal });
+  const response = await fetch(path, {
+    method,
+    ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
+    signal
+  });
   const data = await response.json();
   if (!response.ok) throw Object.assign(new Error(data.error || 'Request failed.'), { raw: data.raw });
   return data;
 }
-function showPrompt() {
-  const prompt = session?.prompt || prompts.find(p => p.id === $('prompt').value);
-  $('prompt-text').textContent = prompt?.instruction || '';
-  $('prompt-sections').replaceChildren(...(prompt?.sections || []).map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
+
+function formatDate(value) { return new Intl.DateTimeFormat(undefined, { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value)); }
+
+function modelLabel(model) {
+  if (!model) return 'OFFLINE · NO VISION MODEL';
+  return `${models.some(item => item.id === model) ? 'ONLINE' : 'SAVED'} · LM STUDIO · ${model}`;
 }
-function populatePrompts(selected = $('prompt').value) {
-  const available = prompts.filter(p => (p.sessionType || 'feedback') === mode);
-  $('prompt').replaceChildren();
-  for (const category of [...new Set(available.map(p => p.category))]) { const group = document.createElement('optgroup'); group.label = category; group.append(...available.filter(p => p.category === category).map(p => new Option(p.name, p.id))); $('prompt').append(group); }
-  if (available.some(p => p.id === selected)) $('prompt').value = selected;
-  showPrompt();
+
+function setModelBars(root = document) {
+  named('model-name', root).forEach(node => setText(node, modelLabel(session?.model || modelSelect?.value)));
 }
-async function refreshModels() {
-  $('refresh').disabled = true;
+
+function normalizeDonorResources(root) {
+  $$('img[src]', root).forEach(imageNode => {
+    const src = imageNode.getAttribute('src') || '';
+    if (src.startsWith('/assets/')) imageNode.setAttribute('src', `${DONOR_BASE}${src.slice(1)}`);
+    else if (src.startsWith('assets/')) imageNode.setAttribute('src', `${DONOR_BASE}${src}`);
+  });
+}
+
+async function loadDonor(state) {
+  const response = await fetch(`${DONOR_BASE}${donorFiles[state]}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Could not load approved ${state} feedback donor.`);
+  const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
+  const source = parsed.querySelector('.source-frame');
+  if (!source) throw new Error(`Approved ${state} feedback donor has no source frame.`);
+  normalizeDonorResources(source);
+  app.replaceChildren(document.importNode(source, true));
+  document.body.dataset.screen = `feedback-${state}`;
+  return $('.source-frame', app);
+}
+
+function createProxyControls() {
+  const controls = document.createElement('div');
+  controls.id = 'director-control-proxies';
+  controls.className = 'director-control-proxy';
+  controls.setAttribute('aria-hidden', 'true');
+  controls.innerHTML = `
+    <input id="image-file" type="file" accept="image/jpeg,image/png,image/webp">
+    <select id="prompt"></select>
+    <select id="model"></select>
+    <button id="review" type="button">Get feedback</button>
+    <textarea id="message"></textarea>
+    <button id="send" type="button">Send</button>
+    <div id="error" role="alert" hidden></div>
+    <div id="status" role="status"></div>
+    <div id="failed-raw"></div>
+  `;
+  document.body.append(controls);
+  promptSelect = $('#prompt', controls);
+  modelSelect = $('#model', controls);
+  imageInput = $('#image-file', controls);
+  messageInput = $('#message', controls);
+  errorNode = $('#error', controls);
+  statusNode = $('#status', controls);
+  imageInput.addEventListener('change', () => selectImage(imageInput.files[0]));
+  promptSelect.addEventListener('change', () => { renderPrompt(promptSelect.value); sync(); });
+  modelSelect.addEventListener('change', () => { setModelBars(); sync(); });
+}
+
+function populatePrompts(selected = promptSelect?.value) {
+  const feedbackPrompts = prompts.filter(prompt => (prompt.sessionType || 'feedback') === 'feedback');
+  promptSelect.replaceChildren();
+  for (const category of [...new Set(feedbackPrompts.map(prompt => prompt.category))]) {
+    const group = document.createElement('optgroup');
+    group.label = category;
+    group.append(...feedbackPrompts.filter(prompt => prompt.category === category).map(prompt => new Option(prompt.name, prompt.id)));
+    promptSelect.append(group);
+  }
+  if (feedbackPrompts.some(prompt => prompt.id === selected)) promptSelect.value = selected;
+  else if (feedbackPrompts[0]) promptSelect.value = feedbackPrompts[0].id;
+  renderPrompt(promptSelect.value);
+}
+
+function selectedPrompt() { return prompts.find(prompt => prompt.id === promptSelect?.value) || session?.prompt || null; }
+
+function metaBox(root, label) {
+  return named('meta-box', root).find(box => normalized(nodeText(firstNamed('form-label', box))).includes(normalized(label))) || null;
+}
+
+function renderPrompt(promptId) {
+  const prompt = prompts.find(item => item.id === promptId) || session?.prompt;
+  const root = $('.source-frame', app);
+  if (!root || !prompt) return;
+  setText(firstNamed('prompt-body', root) || firstNamed('prompt-text', root), prompt.instruction || prompt.body || '');
+  const selectors = named('prompt-selector', root);
+  if (phase === 'new' && selectors[0]) setText(selectors[0], prompt.name);
+  const promptMeta = metaBox(root, 'PROMPT USED');
+  if (promptMeta) setText(firstNamed('Body/13px', promptMeta), prompt.instruction || prompt.body || '');
+}
+
+function setImageSource(node, selected) {
+  if (!node || !selected) return;
+  const imageNode = $('img.source-image', node);
+  if (imageNode) { imageNode.src = selected.sourceDataUrl; imageNode.alt = selected.name; }
+  else {
+    node.style.backgroundImage = `url("${selected.sourceDataUrl}")`;
+    node.style.backgroundSize = 'cover';
+    node.style.backgroundPosition = 'center';
+  }
+}
+
+function renderImage(root = $('.source-frame', app)) {
+  if (!root || !image) return;
+  setImageSource(firstNamed('Feedback / File', root), image);
+  setImageSource(firstNamed('image.jpg', root), image);
+}
+
+function renderNew(root) {
+  const selectors = named('prompt-selector', root);
+  const sourceType = firstNamed('photography-input', root);
+  setText(sourceType, selectedPrompt()?.category || 'Photography');
+  setText(selectors[0], selectedPrompt()?.name || 'Select prompt');
+  setText(firstNamed('prompt-body', root), selectedPrompt()?.instruction || 'Select a preset prompt OR enter your own..');
+  const output = firstNamed('output text', firstNamed('content-right', root));
+  setText(firstNamed('heading', firstNamed('content-right', root)), image ? 'READY FOR FEEDBACK' : 'NOTHING TO FEEDBACK');
+  setText(output, image ? `${image.name} selected.` : 'Select an image to start feedback.');
+  if (image) renderImage(root);
+  bindNewInteractions(root);
+}
+
+function renderThinking(root) {
+  setText(firstNamed('header-body', root)?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]'), session?.image?.name || image?.name || 'Feedback');
+  setText(firstNamed('photography-input', root), session?.prompt?.category || selectedPrompt()?.category || 'Photography');
+  setText(firstNamed('prompt-selector', root), session?.prompt?.name || selectedPrompt()?.name || 'Select prompt');
+  setText(firstNamed('prompt-body', root), session?.prompt?.instruction || session?.prompt?.body || selectedPrompt()?.instruction || '');
+  setText(firstNamed('heading', firstNamed('content-right', root)), 'WRITING FEEDBACK');
+  setText(firstNamed('output text', firstNamed('content-right', root)), '......');
+  renderImage(root);
+}
+
+function structuredFeedbackText(feedback) {
+  return (feedback?.sections || []).map((section, index) => `${index + 1}. ${section.heading}\n${section.content}`).join('\n\n');
+}
+
+function renderOutput(root) {
+  const outputField = firstNamed('content-right', root);
+  setText(firstNamed('heading', outputField), 'FEEDBACK');
+  setText(firstNamed('output text', outputField), structuredFeedbackText(session.feedback));
+}
+
+function renderComplete(root, detail = false) {
+  const title = firstNamed('header-title', root) || firstNamed('title-body', root);
+  setText(title?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]') || title, session.title || session.image.name);
+  setText(firstNamed('photography-input', root), session.prompt.category || 'Photography');
+  setText(firstNamed('prompt-selector', root), session.prompt.name || 'Custom prompt');
+  setText(firstNamed('prompt-body', root), session.prompt.instruction || session.prompt.body || '');
+  setText(firstNamed('prompt-text', root), session.chat?.at(-1)?.role === 'assistant' ? session.chat.at(-1).content : 'Lets discuss the photo in more detail.');
+  setText(firstNamed('model-name', root), modelLabel(session.model));
+  renderImage(root);
+  renderOutput(root);
+  if (detail) {
+    setText(firstNamed('date-created', root), formatDate(session.createdAt));
+    setText(firstNamed('UI / Category Badge', metaBox(root, 'SOURCE TYPE')), (session.prompt.category || 'Photography').toUpperCase());
+    setText(firstNamed('Body/13px', metaBox(root, 'PROMPT USED')), session.prompt.instruction || session.prompt.body || '');
+    setText(firstNamed('Body/13px', metaBox(root, 'REVIEW BY')), session.model);
+    setText(firstNamed('prompt-selector', metaBox(root, 'PROJECT')), 'Not linked');
+  }
+  bindRecordInteractions(root, detail);
+}
+
+function sync() {
+  const busy = !!pending;
+  if (modelSelect) modelSelect.disabled = busy || !!session;
+  if (promptSelect) promptSelect.disabled = busy || !!session;
+  if (imageInput) imageInput.disabled = busy || !!session;
+  const root = $('.source-frame', app);
+  if (!root) return;
+  setModelBars(root);
+  const sourceBox = firstNamed('Feedback / File', root);
+  if (sourceBox) sourceBox.setAttribute('aria-disabled', String(busy || !!session));
+  const action = firstNamed('action-bar', root);
+  if (action) { action.setAttribute('aria-disabled', String(busy || !image || !promptSelect?.value || !modelSelect?.value)); action.style.cursor = busy ? 'wait' : 'pointer'; }
+}
+
+function makeClickable(node, handler, label) {
+  if (!node || node.dataset.bound === 'true') return;
+  node.dataset.bound = 'true';
+  node.setAttribute('role', 'button');
+  if (label) node.setAttribute('aria-label', label);
+  node.style.cursor = 'pointer';
+  node.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); handler(event); });
+}
+
+function bindDrop(node) {
+  if (!node || node.dataset.dropBound === 'true') return;
+  node.dataset.dropBound = 'true';
+  node.addEventListener('dragover', event => event.preventDefault());
+  node.addEventListener('drop', event => {
+    event.preventDefault();
+    if (event.dataTransfer.files.length !== 1) return setError('Drop one image at a time.');
+    selectImage(event.dataTransfer.files[0]);
+  });
+}
+
+function bindNewInteractions(root) {
+  if (root.dataset.feedbackBindings === 'true') { sync(); return; }
+  root.dataset.feedbackBindings = 'true';
+  const fileBox = firstNamed('Feedback / File', root);
+  const selectors = named('prompt-selector', root);
+  const typeBox = firstNamed('photography-input', root);
+  makeClickable(fileBox, () => imageInput.click(), 'Choose a source image');
+  bindDrop(fileBox);
+  makeClickable(typeBox, () => {
+    const categories = ['Photography', 'Design', 'General'];
+    const current = selectedPrompt()?.category || 'Photography';
+    const next = categories[(categories.indexOf(current) + 1) % categories.length];
+    const nextPrompt = prompts.find(prompt => prompt.category === next && (prompt.sessionType || 'feedback') === 'feedback');
+    if (nextPrompt) { promptSelect.value = nextPrompt.id; renderPrompt(nextPrompt.id); sync(); }
+  }, 'Change source type');
+  makeClickable(selectors[0], () => promptSelect.showPicker?.() || promptSelect.click(), 'Choose a feedback prompt');
+  makeClickable(firstNamed('action-bar', root), () => startFeedback(), 'Get feedback');
+  $$('a[href]', root).forEach(link => {
+    if (link.getAttribute('aria-label') === 'feedback-new') link.addEventListener('click', event => { event.preventDefault(); startNew(); });
+  });
+  sync();
+}
+
+function bindRecordInteractions(root, detail) {
+  const composer = firstNamed('prompt-text', root);
+  const send = firstNamed('enter-button', root);
+  const target = leaf(composer);
+  if (target && target.dataset.editable !== 'true') {
+    target.dataset.editable = 'true';
+    target.contentEditable = 'true';
+    target.setAttribute('role', 'textbox');
+    target.setAttribute('aria-label', 'Ask Director');
+    target.spellcheck = false;
+  }
+  makeClickable(send, () => sendChat(), 'Ask Director');
+  const newFeedback = named('UI / Button', root).find(node => normalized(nodeText(node)) === 'NEW FEEDBACK');
+  makeClickable(newFeedback, () => startNew(), 'New feedback');
+  makeClickable(firstNamed('pencil', root), () => renameSession(), 'Rename feedback');
+  makeClickable(firstNamed('bin', root), () => deleteSession(), 'Delete feedback');
+  $$('a[href]', root).forEach(link => {
+    if (link.getAttribute('aria-label') === 'feedback-new') link.addEventListener('click', event => { event.preventDefault(); startNew(); });
+  });
+  const back = root.querySelector('[aria-label="darkroom"]');
+  if (back) back.setAttribute('aria-disabled', 'true');
+  sync();
+}
+
+async function selectImage(file) {
+  if (!file || pending || session) return;
+  setError();
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) {
+    setError('Choose a JPEG, PNG or WebP image up to 12 MB.');
+    return;
+  }
+  const version = ++imageVersion;
   try {
-    const previous = session?.model || $('model').value;
-    const data = await api('/api/models');
-    $('model').replaceChildren(...data.models.map(m => new Option(`${m.name} · ${m.contextLength || '?'} context`, m.id)));
-    if (data.models.some(m => m.id === previous)) $('model').value = previous;
-    if (!data.models.length) $('model').add(new Option('No loaded vision model', ''));
-    $('model-status').textContent = data.models.length ? 'LM Studio connected · image-capable model loaded.' : 'Load a vision-capable model in LM Studio, then refresh.';
-    if (session && !data.models.some(m => m.id === session.model)) {
-      $('model').add(new Option(`${session.model} · saved model, currently unloaded`, session.model)); $('model').value = session.model;
-      $('model-status').textContent = `Load ${session.model} in LM Studio to continue this saved conversation.`;
-    }
-  } catch (e) {
-    $('model').replaceChildren(new Option('LM Studio unavailable', ''));
-    $('model-status').textContent = e.message;
-    if (session) { $('model').add(new Option(`${session.model} · saved model`, session.model)); $('model').value = session.model; }
-  } finally { sync(); }
-}
-async function selectImage(file, slot = 'A') {
-  if (!file || pending || session || (slot === 'B' && mode !== 'compare')) return;
-  const suffix = slot === 'B' ? '-b' : '';
-  error();
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) { error('Choose a JPEG, PNG or WebP image up to 12 MB.'); $(`image-file${suffix}`).value = ''; return; }
-  const version = ++imageVersion[slot]; decoding++; sync();
-  try {
-    const source = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('The image could not be read.')); reader.readAsDataURL(file); });
-    const picture = new Image(); picture.src = source; await picture.decode();
-    if (picture.naturalWidth * picture.naturalHeight > 100000000) throw new Error('This image is too large to preview safely. Export a smaller JPEG or PNG.');
-    // The original remains visible; a bounded copy is sent repeatedly to the vision model.
+    const sourceDataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('The image could not be read.'));
+      reader.readAsDataURL(file);
+    });
+    const picture = new Image(); picture.src = sourceDataUrl; await picture.decode();
+    if (version !== imageVersion) return;
+    if (picture.naturalWidth * picture.naturalHeight > 100000000) throw new Error('This image is too large to preview safely.');
     const scale = Math.min(1, 1600 / Math.max(picture.naturalWidth, picture.naturalHeight));
     const canvas = document.createElement('canvas'); canvas.width = Math.round(picture.naturalWidth * scale); canvas.height = Math.round(picture.naturalHeight * scale);
-    const context = canvas.getContext('2d'); context.fillStyle = '#ffffff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(picture, 0, 0, canvas.width, canvas.height);
-    if (version !== imageVersion[slot]) return;
-    const selected = { name: file.name, sourceDataUrl: source, dataUrl: canvas.toDataURL('image/jpeg', 0.92), width: picture.naturalWidth, height: picture.naturalHeight, reviewWidth: canvas.width, reviewHeight: canvas.height };
-    if (slot === 'A') image = selected; else imageB = selected;
-    renderImage(selected, slot);
-  } catch (e) { if (version === imageVersion[slot]) error(`Could not open Image ${slot}. ${e.message}`); }
-  finally { decoding--; if (version === imageVersion[slot]) $(`image-file${suffix}`).value = ''; sync(); }
+    const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+    image = { name: file.name, sourceDataUrl, dataUrl: canvas.toDataURL('image/jpeg', 0.92), width: picture.naturalWidth, height: picture.naturalHeight, reviewWidth: canvas.width, reviewHeight: canvas.height };
+    renderNew($('.source-frame', app));
+  } catch (error) { setError(`Could not open image. ${error.message}`); }
+  finally { imageInput.value = ''; sync(); }
 }
-function renderImage(selected, slot) {
-  const suffix = slot === 'B' ? '-b' : '';
-  const preview = $(`preview${suffix}`); preview.hidden = !selected; $(`empty-image${suffix}`).hidden = !!selected;
-  if (!selected) { preview.removeAttribute('src'); $(`image-name${suffix}`).textContent = 'JPEG, PNG or WebP · up to 12 MB'; return; }
-  preview.src = selected.sourceDataUrl; preview.alt = `Image ${slot}: ${selected.name}`;
-  $(`image-name${suffix}`).textContent = `${selected.name}${selected.width ? ` · ${selected.width} × ${selected.height} · review copy ${selected.reviewWidth} × ${selected.reviewHeight}` : ''}${session ? ' · Director-owned copy' : ''}`;
+
+function startNew() {
+  pending?.abort(); pending = null; session = null; chatRequest = null; phase = 'new';
+  history.replaceState(null, '', '/');
+  mountState('new');
 }
-async function run(status, action) {
-  error(); pending = new AbortController(); $('status').textContent = status; sync();
-  try { await action(pending.signal); $('status').textContent = ''; }
-  catch (e) { $('status').textContent = ''; if (e.name === 'AbortError') $('status').textContent = 'Request cancelled. Check History if a save was already finishing; otherwise you can retry.'; else error(e.message, e.raw); }
-  finally { await refreshHistory(); pending = null; sync(); }
-}
-function renderFeedback() {
-  $('feedback').replaceChildren(...session.feedback.sections.map(({ heading, content }, i) => {
-    const section = document.createElement('section'); const title = document.createElement('h3'); const text = document.createElement('p');
-    title.textContent = `${i + 1}. ${heading}`; text.textContent = content; section.append(title, text); return section;
-  }));
-  $('raw').textContent = session.feedback.raw; $('raw-response').hidden = false;
-  $('session-info').textContent = `${session.type === 'compare' ? `Image A: ${session.image.name} / Image B: ${session.imageB.name}` : session.image.name} · ${session.prompt.category} / ${session.prompt.name} · ${session.model}`;
-  $('save-status').textContent = `Saved locally · ${session.title || session.image.name} · updated ${new Date(session.updatedAt).toLocaleString()}`;
-}
-function renderChat() {
-  $('chat-log').replaceChildren(...session.chat.map(turn => {
-    const article = document.createElement('article'); article.className = `turn ${turn.role}`;
-    const label = document.createElement('strong'); label.textContent = turn.role === 'user' ? 'You' : 'Director';
-    const content = document.createElement('p'); content.textContent = turn.content;
-    article.append(label, content); return article;
-  }));
-}
-async function refreshHistory() {
+
+async function startFeedback() {
+  if (pending || session || !image || !promptSelect.value || !modelSelect.value) return;
+  const prompt = selectedPrompt(); if (!prompt) return;
+  session = { image, prompt, model: modelSelect.value }; phase = 'thinking'; pending = new AbortController(); setError();
+  setStatus('Reviewing your image with the local model. This may take a minute…');
+  history.replaceState(null, '', '/?view=thinking');
+  await mountState('thinking'); sync();
   try {
-    const data = await api('/api/sessions');
-    history = data.sessions;
-    $('history-list').replaceChildren(...data.sessions.map(item => sessionItem(item)));
-    $('history-status').textContent = data.sessions.length ? `${data.sessions.length} saved session${data.sessions.length === 1 ? '' : 's'}` : 'No saved sessions yet. Your first completed critique will appear here.';
-    if (organiseId && !history.some(s => s.id === organiseId)) { organiseId = null; $('organise-panel').hidden = true; }
-  } catch (e) { $('history-status').textContent = `History could not be loaded: ${e.message}`; }
-  await refreshOrganisation();
-  sync();
+    const data = await api('/api/feedback', { image, promptId: prompt.id, model: modelSelect.value }, pending.signal);
+    session = data.session; phase = 'complete';
+    history.replaceState(null, '', `/?session=${encodeURIComponent(session.id)}&view=complete`);
+    await mountState('complete');
+  } catch (error) {
+    if (error.name === 'AbortError') setStatus('Request cancelled.'); else setError(error.message, error.raw);
+    phase = 'new'; session = null; await mountState('new');
+  } finally { setStatus(); pending = null; sync(); }
 }
-function sessionItem(item, target = null) {
-      const li = document.createElement('li');
-      if (target) li.dataset.organisedSessionId = item.id; else li.dataset.sessionId = item.id;
-      if (item.id === session?.id) li.setAttribute('aria-current', 'true');
-      const description = document.createElement('div'); description.className = 'history-description';
-      const title = document.createElement('strong'); title.textContent = item.title || item.imageName || 'Untitled session';
-      const meta = document.createElement('p'); meta.className = 'muted'; meta.textContent = `${item.type === 'compare' ? `Compare · A: ${item.imageName} / B: ${item.imageBName}` : `Feedback · ${item.imageName || 'Image unavailable'}`} · updated ${new Date(item.updatedAt).toLocaleString()}`;
-      description.append(title, meta);
-      if (item.error) { const warning = document.createElement('p'); warning.textContent = item.error; description.append(warning); }
-      const actions = document.createElement('div'); actions.className = 'history-actions';
-      const buttons = [['Open', () => openSession(item.id)], ['Rename', () => renameSession(item)], ['Organise', () => organiseSession(item.id)]];
-      if (target) buttons.push(['Remove', () => run('Removing membership…', signal => api(`/api/${target}/sessions/${item.id}`, null, signal, 'DELETE'))]);
-      buttons.push(['Delete', () => deleteSession(item)]);
-      for (const [label, handler] of buttons) {
-        const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
-        if (item.error && label !== 'Delete') button.dataset.unavailable = 'true';
-        button.addEventListener('click', handler); actions.append(button);
-      }
-      li.append(description, actions); return li;
-}
-async function refreshOrganisation() {
+
+async function sendChat() {
+  const composer = firstNamed('prompt-text', $('.source-frame', app));
+  const message = leaf(composer)?.textContent.trim();
+  if (!message || !session?.id || pending) return;
+  chatRequest = chatRequest?.message === message && chatRequest.sessionId === session.id ? chatRequest : { message, sessionId: session.id, id: crypto.randomUUID() };
+  pending = new AbortController(); setError(); setStatus('Director is looking at the image and your conversation…'); sync();
   try {
-    organisation = await api('/api/organisation');
-    const selected = $('organisation-view').value;
-    const options = [new Option('Choose a Project or Library', '')];
-    for (const kind of ['libraries', 'projects']) for (const item of organisation[kind]) options.push(new Option(item.name, `${kind}/${item.id}`));
-    $('organisation-view').replaceChildren(...options);
-    if (options.some(o => o.value === selected)) $('organisation-view').value = selected;
-    else if (selected) $('organisation-status').textContent = 'That Project was deleted. Its sessions remain in History.';
-    await renderOrganisationView();
-    if (organiseId) await renderMemberships();
-  } catch (e) { $('organisation-status').textContent = `Organisation could not be loaded: ${e.message} History remains available.`; }
-  sync();
+    const data = await api('/api/chat', { sessionId: session.id, revision: session.revision, message, requestId: chatRequest.id }, pending.signal);
+    session = data.session; chatRequest = null; setText(firstNamed('prompt-text', $('.source-frame', app)), data.turn?.content || '');
+  } catch (error) { setError(error.message, error.raw); setText(firstNamed('prompt-text', $('.source-frame', app)), message); }
+  finally { pending = null; setStatus(); sync(); }
 }
-async function renderOrganisationView() {
-  const target = $('organisation-view').value;
-  $('organisation-list').replaceChildren(); $('project-actions').hidden = !target.startsWith('projects/');
-  if (!target) return;
+
+async function renameSession() {
+  if (!session?.id || pending) return;
+  const title = window.prompt('Session title (up to 200 characters):', session.title || session.image.name); if (title === null) return;
+  pending = new AbortController();
+  try { const data = await api(`/api/sessions/${session.id}`, { title, revision: session.revision }, pending.signal, 'PATCH'); session = data.session; renderComplete($('.source-frame', app), phase === 'detail'); }
+  catch (error) { setError(error.message, error.raw); }
+  finally { pending = null; sync(); }
+}
+
+async function deleteSession() {
+  if (!session?.id || pending) return;
+  if (!window.confirm(`Delete “${session.title || session.image.name}” and its Director-owned image copies? This cannot be undone. Your original file will not be touched.`)) return;
+  pending = new AbortController();
+  try { await api(`/api/sessions/${session.id}`, { revision: session.revision }, pending.signal, 'DELETE'); image = null; startNew(); }
+  catch (error) { setError(error.message, error.raw); }
+  finally { pending = null; sync(); }
+}
+
+async function mountState(nextPhase) {
+  phase = nextPhase;
+  const root = await loadDonor(nextPhase);
+  if (nextPhase === 'new') renderNew(root);
+  if (nextPhase === 'thinking') renderThinking(root);
+  if (nextPhase === 'complete') renderComplete(root, false);
+  if (nextPhase === 'detail') renderComplete(root, true);
+  setModelBars(root); sync();
+}
+
+async function loadSessionFromQuery() {
+  const id = new URLSearchParams(location.search).get('session');
+  if (!id) return mountState('new');
+  const data = await api(`/api/sessions/${encodeURIComponent(id)}`);
+  session = data.session; image = session.image; phase = 'detail'; await mountState('detail');
+}
+
+async function refreshModels() {
   try {
-    const data = await api(`/api/${target}`);
-    // Ignore an old response if the user selected another view while it was loading.
-    if ($('organisation-view').value !== target) return;
-    $('organisation-list').replaceChildren(...data.sessions.map(item => sessionItem(item, target)));
-    $('organisation-status').textContent = `${data.name} · ${data.sessions.length} session${data.sessions.length === 1 ? '' : 's'}. Open uses the same session as History.`;
-  } catch (e) { if ($('organisation-view').value === target) $('organisation-status').textContent = e.message; }
-  sync();
+    const data = await api('/api/models'); models = data.models;
+    modelSelect.replaceChildren(...models.map(model => new Option(model.name || model.id, model.id)));
+    if (models[0]) modelSelect.value = models[0].id;
+    if (session?.model && !models.some(model => model.id === session.model)) { modelSelect.add(new Option(`${session.model} · saved model, currently unloaded`, session.model)); modelSelect.value = session.model; }
+  } catch (error) { models = []; modelSelect.replaceChildren(new Option('No loaded vision model', '')); setError(error.message); }
+  setModelBars(); sync();
 }
-function organiseSession(id) {
-  organiseId = id; $('organise-panel').hidden = false;
-  run('Loading memberships…', async () => { await renderMemberships(); $('organise-panel').scrollIntoView({ block: 'nearest' }); });
+
+async function boot() {
+  createProxyControls();
+  try { prompts = (await api('/api/prompts')).prompts; populatePrompts(); await refreshModels(); await loadSessionFromQuery(); }
+  catch (error) { setError(`Director could not start: ${error.message}`); }
 }
-async function renderMemberships() {
-  const id = organiseId, memberships = await api(`/api/sessions/${id}/memberships`);
-  if (id !== organiseId) return;
-  $('organise-heading').textContent = `Organise: ${history.find(s => s.id === id)?.title || session?.title || 'Session'}`;
-  const options = [];
-  for (const kind of ['libraries', 'projects']) for (const item of organisation[kind]) {
-    const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.dataset.membership = `${kind}/${item.id}`;
-    input.checked = memberships[kind === 'projects' ? 'projectIds' : 'libraryIds'].includes(item.id);
-    if (item.error) { input.dataset.unavailable = 'true'; label.title = item.error; }
-    input.addEventListener('change', () => run('Saving membership…', signal => api(`/api/${kind}/${item.id}/sessions/${id}`, null, signal, input.checked ? 'PUT' : 'DELETE')));
-    label.append(input, document.createTextNode(item.name)); options.push(label);
-  }
-  $('membership-options').replaceChildren(...options); sync();
-}
-function keepDraft() { return !$('message').value.trim() || window.confirm('Discard the unsent draft? Your completed conversation is already saved.'); }
-function restoreSession(saved, { preserveDraft = false } = {}) {
-  session = saved; image = saved.image; imageB = saved.imageB || null; mode = saved.type; $('mode').value = mode;
-  if (!preserveDraft) { $('message').value = ''; chatRequest = null; }
-  renderImage(image, 'A'); renderImage(imageB, 'B'); populatePrompts(saved.prompt.id);
-  if (![...$('prompt').options].some(p => p.value === saved.prompt.id)) { const option = new Option(saved.prompt.name, saved.prompt.id); option.dataset.snapshot = 'true'; $('prompt').add(option); }
-  $('prompt').value = saved.prompt.id;
-  // Always show the saved name/content, even if the catalog changed under the same ID.
-  const option = [...$('prompt').options].find(o => o.value === saved.prompt.id); if (option) option.textContent = saved.prompt.name;
-  showPrompt(); renderFeedback(); renderChat(); sync();
-}
-function openSession(id) {
-  const sameSession = session?.id === id;
-  if (pending || (!sameSession && !keepDraft())) return;
-  run('Opening saved session…', async signal => {
-    const data = await api(`/api/sessions/${id}`, null, signal); restoreSession(data.session, { preserveDraft: sameSession }); await refreshModels();
-  });
-}
-function renameSession(item) {
-  const title = window.prompt('Session title (up to 200 characters):', item.title || '');
-  if (title === null) return;
-  run('Saving session title…', async signal => {
-    const data = await api(`/api/sessions/${item.id}`, { title, revision: item.revision }, signal, 'PATCH');
-    if (session?.id === item.id) restoreSession(data.session, { preserveDraft: true });
-  });
-}
-function clearSession({ retainImage = true } = {}) {
-  session = null; chatRequest = null;
-  $('feedback').replaceChildren(); $('chat-log').replaceChildren(); $('raw').textContent = ''; $('raw-response').hidden = true;
-  $('message').value = ''; $('save-status').textContent = ''; $('session-info').textContent = 'Choose a prompt or replace the image for a new critique.';
-  populatePrompts();
-  if (!retainImage) { image = null; imageB = null; }
-  renderImage(image, 'A'); renderImage(imageB, 'B');
-  showPrompt(); sync();
-}
-function deleteSession(item) {
-  if (!window.confirm(`Delete “${item.title || item.imageName || 'Untitled session'}” and its Director-owned image copies? This cannot be undone. Your original file will not be touched.`)) return;
-  run('Deleting session…', async signal => {
-    await api(`/api/sessions/${item.id}`, { revision: item.revision }, signal, 'DELETE');
-    if (session?.id === item.id) { clearSession({ retainImage: false }); await refreshModels(); }
-  });
-}
-for (const slot of ['A', 'B']) {
-  const suffix = slot === 'B' ? '-b' : '', drop = $(`drop-zone${suffix}`);
-  $(`image-file${suffix}`).addEventListener('change', e => selectImage(e.target.files[0], slot));
-  for (const name of ['dragenter', 'dragover']) drop.addEventListener(name, e => { e.preventDefault(); if (!pending && !session) drop.classList.add('dragging'); });
-  drop.addEventListener('dragleave', () => drop.classList.remove('dragging'));
-  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('dragging'); if (e.dataTransfer.files.length > 1) error(`Drop one image into Image ${slot} at a time.`); else selectImage(e.dataTransfer.files[0], slot); });
-}
-$('mode').addEventListener('change', () => {
-  if (!keepDraft()) { $('mode').value = mode; return; }
-  mode = $('mode').value; clearSession(); error(); refreshModels(); refreshHistory();
-});
-window.addEventListener('dragover', e => e.preventDefault()); window.addEventListener('drop', e => e.preventDefault());
-$('prompt').addEventListener('change', showPrompt); $('model').addEventListener('change', sync); $('refresh').addEventListener('click', refreshModels);
-$('refresh-history').addEventListener('click', refreshHistory);
-$('refresh-organisation').addEventListener('click', () => run('Refreshing organisation…', async () => {}));
-$('organisation-view').addEventListener('change', renderOrganisationView);
-$('organise-current').addEventListener('click', () => organiseSession(session.id));
-$('close-organise').addEventListener('click', () => { organiseId = null; $('organise-panel').hidden = true; });
-$('create-project').addEventListener('click', () => {
-  const name = window.prompt('Project name (up to 200 characters):'); if (name === null) return;
-  run('Creating Project…', async signal => {
-    const { project } = await api('/api/projects', { name }, signal);
-    $('organisation-view').add(new Option(project.name, `projects/${project.id}`)); $('organisation-view').value = `projects/${project.id}`; $('organisation-panel').open = true;
-  });
-});
-$('rename-project').addEventListener('click', () => {
-  const project = organisation.projects.find(p => `projects/${p.id}` === $('organisation-view').value); if (!project) return;
-  const name = window.prompt('Project name (up to 200 characters):', project.name); if (name === null) return;
-  run('Renaming Project…', signal => api(`/api/projects/${project.id}`, { name, revision: project.revision }, signal, 'PATCH'));
-});
-$('delete-project').addEventListener('click', () => {
-  const project = organisation.projects.find(p => `projects/${p.id}` === $('organisation-view').value); if (!project) return;
-  if (!window.confirm(`Delete Project “${project.name}”? All its sessions stay in History and their Libraries or other Projects.`)) return;
-  run('Deleting Project…', signal => api(`/api/projects/${project.id}`, { revision: project.revision }, signal, 'DELETE'));
-});
-$('cancel').addEventListener('click', () => pending?.abort());
-$('review').addEventListener('click', () => run(mode === 'compare' ? 'Comparing Image A and Image B with the local model…' : 'Reviewing your image with the local model. This may take a minute…', async signal => {
-  const data = await api(mode === 'compare' ? '/api/compare' : '/api/feedback', { image, ...(mode === 'compare' ? { imageB } : {}), promptId: $('prompt').value, model: $('model').value }, signal);
-  restoreSession(data.session);
-}));
-$('chat-form').addEventListener('submit', e => {
-  e.preventDefault(); const message = $('message').value.trim(); if (!message || !session || pending) return;
-  if (!chatRequest || chatRequest.message !== message || chatRequest.sessionId !== session.id) chatRequest = { message, sessionId: session.id, id: crypto.randomUUID() };
-  run('Director is looking at the image and your conversation…', async signal => {
-    const data = await api('/api/chat', { sessionId: session.id, revision: session.revision, message, requestId: chatRequest.id }, signal);
-    restoreSession(data.session);
-  }).then(() => $('message').focus());
-});
-$('new').addEventListener('click', () => {
-  if (!keepDraft()) return;
-  clearSession(); error(); refreshModels(); refreshHistory();
-});
-window.addEventListener('beforeunload', e => { if (pending || $('message').value.trim()) { e.preventDefault(); e.returnValue = ''; } });
-try {
-  prompts = (await api('/api/prompts')).prompts;
-  populatePrompts();
-  showPrompt(); await Promise.all([refreshModels(), refreshHistory()]);
-} catch (e) { error(`Director could not start: ${e.message}`); }
-sync();
+
+await boot();
