@@ -87,6 +87,41 @@ test('Critique-policy validator reports each section, exact excerpt and rule lab
     label: 'unsupported intentional image-making claims'
   }]);
 });
+test('Critique-policy validator enforces contextual claims while allowing visible ambiguity', () => {
+  const prompt = getPrompt('photography-review');
+  const reject = [
+    'The photographer placed the chair to create tension.',
+    'The photographer intended to convey isolation.',
+    'The photographer deliberately framed the subject against the wall.',
+    'The scene was staged.',
+    'The scene was not staged.',
+    'The subject was posed.',
+    'The objects were arranged by circumstance.',
+    'The moment happened by chance.',
+    'The subject feels lonely and wants to escape.',
+    'He thinks about leaving.',
+    'She wants to disappear.',
+    'The candid frame creates tension.'
+  ];
+  const allow = [
+    'The visible pose creates a diagonal through the frame.',
+    'The photograph does not establish whether the scene was staged.',
+    'It is unclear whether the framing was intentional.',
+    'The image does not reveal whether this was planned.',
+    'We cannot determine whether the subject was posed.',
+    'There is not enough evidence to call the placement deliberate.',
+    'His gaze is lowered.',
+    'Her expression creates a sense of tension.',
+    'His posture can suggest introspection, while his state remains unresolved.',
+    'The geometry creates a deliberate-looking regularity, but the image does not establish how it was produced.'
+  ];
+  const feedbackFor = sentence => parseFeedback(JSON.stringify({
+    section_1: sentence,
+    ...Object.fromEntries(prompt.sections.slice(1).map((heading, i) => [`section_${i + 2}`, `Visible observation for ${heading}`]))
+  }), prompt);
+  for (const sentence of reject) assert.ok(findCritiquePolicyViolations(feedbackFor(sentence)).length, `expected rejection: ${sentence}`);
+  for (const sentence of allow) assert.deepEqual(findCritiquePolicyViolations(feedbackFor(sentence)), [], `expected allowance: ${sentence}`);
+});
 async function policyRequest(t, { type = 'feedback', first, second }) {
   const prompt = getPrompt(type === 'compare' ? 'compare-general' : 'photography-review', type), calls = [];
   const store = new SessionStore(':memory:');
@@ -121,6 +156,18 @@ test('Structured critique policy enforcement retries only violating Feedback and
     const prompt = getPrompt('compare-general', 'compare');
     const result = await policyRequest(t, { type: 'compare', first: policyRaw(prompt, 'Image A was candid and Image B was posed.'), second: rawFor(prompt) });
     assert.equal(result.response.status, 200); assert.equal(result.calls.length, 2); assert.equal(result.store.list().length, 1); assert.equal(result.response.body.session.type, 'compare'); assert.equal(result.response.body.session.feedback.raw, rawFor(prompt));
+  });
+  await t.test('F. revalidates a corrective response with the same contextual validator', async t => {
+    const prompt = getPrompt('photography-review');
+    const second = policyRaw(prompt, 'The photographer intended to convey isolation.');
+    const result = await policyRequest(t, {
+      first: policyRaw(prompt, 'The photographer placed the chair to create tension.'),
+      second
+    });
+    assert.equal(result.response.status, 502);
+    assert.equal(result.response.body.raw, second);
+    assert.equal(result.store.list().length, 0);
+    assert.equal(result.calls.length, 2);
   });
 });
 async function provider(t, reply, { slow = false } = {}) {

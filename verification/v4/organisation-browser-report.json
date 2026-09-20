@@ -1,6 +1,6 @@
 {
   "passed": true,
-  "date": "2026-09-19T22:33:34.330Z",
+  "date": "2026-09-20T03:41:05.224Z",
   "steps": [
     "Authentic tagged V3 Feedback and Compare migrate and open with exact images, prompts, feedback and prior chats",
     "Both sessions assigned to Test Project; Feedback belongs to a second Project simultaneously; real Feedback and Compare chat continues from Project and is the same canonical chat in History",
@@ -9,13 +9,13 @@
     "Project and Library removal preserve canonical sessions; deleting a populated Project preserves its session in History/Library; canonical Compare deletion removes all memberships/assets; final restart restores no deleted data and preserves unrelated Feedback"
   ],
   "replies": [
-    "The yellow fabric hangs center-left, with the chair positioned to its right and slightly in front.",
+    "The bright yellow fabric hangs center-left, with the chair positioned to its right, angled slightly away and partially in shadow.",
     "At the right edge of Image B is a blue circle."
   ],
   "pids": [
-    22021,
-    22048,
-    22059
+    55764,
+    55815,
+    55822
   ],
   "assetCount": 2,
   "integrityCheck": "ok",

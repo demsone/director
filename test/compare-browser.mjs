@@ -10,6 +10,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { SessionStore } from '../src/store.mjs';
 import { legacyModules } from './helpers/v2-fixture.mjs';
 
+const testModel = process.env.DIRECTOR_TEST_MODEL || 'qwen3-vl-8b-instruct';
 if (!process.env.PLAYWRIGHT_PATH) throw new Error('Set PLAYWRIGHT_PATH to an installed Playwright index.mjs.');
 const { chromium } = await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_PATH)));
 const port = Number(process.env.DIRECTOR_V3_TEST_PORT || 4183), base = `http://127.0.0.1:${port}`;
@@ -21,7 +22,7 @@ const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const legacy = await legacyModules(directory), oldStore = new legacy.SessionStore(join(directory, 'sessions.sqlite'));
 const oldReport = JSON.parse(await readFile('verification/v2/persistence-browser-report.json', 'utf8'));
 const now = new Date().toISOString();
-const preserved = oldStore.create({ id: randomUUID(), createdAt: now, updatedAt: now, title: 'Existing V2 feedback', image: { name: 'v2-source.jpg', sourceDataUrl: sourceA, dataUrl: sourceA, width: 549, height: 330, reviewWidth: 549, reviewHeight: 330 }, prompt: legacy.getPrompt('photography-review'), systemInstruction: legacy.systemInstruction, model: 'qwen3-vl-8b-instruct', modelInfo: { provider: 'LM Studio', contextLength: 8192 }, feedback: oldReport.feedback, chat: oldReport.priorChat });
+const preserved = oldStore.create({ id: randomUUID(), createdAt: now, updatedAt: now, title: 'Existing V2 feedback', image: { name: 'v2-source.jpg', sourceDataUrl: sourceA, dataUrl: sourceA, width: 549, height: 330, reviewWidth: 549, reviewHeight: 330 }, prompt: legacy.getPrompt('photography-review'), systemInstruction: legacy.systemInstruction, model: testModel, modelInfo: { provider: 'LM Studio', contextLength: 8192 }, feedback: oldReport.feedback, chat: oldReport.priorChat });
 oldStore.close();
 let server, browser, page, logs = '', compare, continued, sourceB;
 const result = { passed: false, startedAt: now, steps: [], replies: [], pids: [] }, errors = [];

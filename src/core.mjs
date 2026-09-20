@@ -60,26 +60,99 @@ export function parseFeedback(raw, prompt) {
   }
   return { raw, sections: prompt.sections.map((heading, i) => ({ heading, content: parsed[`section_${i+1}`] })) };
 }
+// These are bounded, deterministic claim shapes rather than a generic vocabulary
+// blacklist. Rules run against clauses so uncertainty can only exempt the claim it
+// actually qualifies. The policy remains intentionally conservative about authorship,
+// production history and subject psychology.
 const structuredCritiquePolicyRules = [
-  ['the prohibited word “candid”', /\bcandid\b/i],
-  ['unsupported intentional image-making claims', /\bintent(?:ional(?:ly)?|ion(?:al(?:ly)?)?)\b/i],
-  ['unsupported accidental image-making claims', /\baccident(?:al(?:ly)?)\b/i],
-  ['unsupported deliberate image-making claims', /\bdeliberat(?:e|ed|ely|ion)\b/i],
-  ['unsupported staged or planned image-making claims', /\b(?:stag(?:e|ed|ing)|plan(?:ned|ning)?|unplan(?:ned|ning)?)\b/i],
-  ['unsupported posed or spontaneous image-making claims', /\b(?:pos(?:e|ed|ing)|spontaneous(?:ly)?)\b/i],
-  ['unsupported timing or photographer-action claims', /\bperfectly\s+timed\b|\bcaptured\s+more\s+deliberately\b|\byou\s+(?:waited\s+for|meant\s+to)\b/i],
-  ['unsupported circumstance or chance claims', /\b(?:caused|arranged)\s+by\s+(?:circumstance|chance)\b|\bby\s+(?:circumstance|chance)\b|\bnot\s+(?:by\s+)?design\b/i]
+  { label: 'the prohibited word “candid”', pattern: /\bcandid\b/gi, priority: 100 },
+  {
+    label: 'unsupported photographer intent or action claims',
+    pattern: /\b(?:the\s+)?photographer\s+(?:intend(?:ed|s)?|mean(?:t|s)?|want(?:ed|s)?|tr(?:y|ied|ies)|cho(?:ose|se|oses)|place(?:d|s)?|arrange(?:d|s)?|stage(?:d|s)?|pose(?:d|s)?|plan(?:ned|s)?|wait(?:ed|s)?)\b(?:\s+(?:to|for))?[^,;.!?]*/gi,
+    priority: 90
+  },
+  {
+    label: 'unsupported photographer intent or action claims',
+    pattern: /\byou\s+(?:intend(?:ed|s)?|mean(?:t|s)?|want(?:ed|s)?|tr(?:y|ied|ies)|cho(?:ose|se|oses)|place(?:d|s)?|arrange(?:d|s)?|stage(?:d|s)?|pose(?:d|s)?|plan(?:ned|s)?|wait(?:ed|s)?)\b(?:\s+(?:to|for))?[^,;.!?]*/gi,
+    priority: 90
+  },
+  {
+    label: 'unsupported photographer intent or action claims',
+    pattern: /\b(?:deliberately|intentionally|perfectly)\s+(?:framed|placed|arranged|stripped\s+of\s+context|timed)\b|\bcaptured\s+more\s+deliberately\b/gi,
+    priority: 85
+  },
+  {
+    label: 'unsupported asserted production history',
+    pattern: /\b(?:the\s+)?(?:scene|moment|image|photograph|picture|subject|figure|person|objects?)\s+(?:was|were|is|are)\s+(?:not\s+)?(?:staged|planned|unplanned|posed)\b/gi,
+    priority: 80
+  },
+  {
+    label: 'unsupported asserted production history',
+    pattern: /\b(?:it|this|that)\s+(?:was|is)\s+(?:not\s+)?(?:staged|planned|unplanned|posed)\b/gi,
+    priority: 80
+  },
+  {
+    label: 'unsupported subject psychology claims',
+    pattern: /\b(?:the\s+)?(?:subject|figure|person|man|woman|boy|girl|he|she|they)\s+(?:feels?|wants?|thinks?|believes?|fears?|hopes?|knows?|remembers?|imagines?|expects?|needs?|wishes?|is\s+(?:depressed|lonely|sad|anxious|afraid|confused))\b[^,;.!?]*/gi,
+    priority: 75
+  },
+  { label: 'unsupported intentional image-making claims', pattern: /\bintent(?:ional(?:ly)?|ion(?:al(?:ly)?)?)\b(?!-looking\b)/gi, priority: 50 },
+  { label: 'unsupported accidental image-making claims', pattern: /\baccident(?:al(?:ly)?)\b/gi, priority: 50 },
+  { label: 'unsupported deliberate image-making claims', pattern: /\bdeliberat(?:e|ed|ely|ion)\b(?!-looking\b)/gi, priority: 50 },
+  { label: 'unsupported staged or planned image-making claims', pattern: /\b(?:stag(?:e|ed|ing)|plan(?:ned|ning)?|unplan(?:ned|ning)?)\b/gi, priority: 50 },
+  // “pose” is also an ordinary visible description. Asserted production
+  // constructions such as “the subject was posed” are handled above.
+  { label: 'unsupported posed or spontaneous image-making claims', pattern: /\bspontaneous(?:ly)?\b/gi, priority: 50 },
+  { label: 'unsupported timing or photographer-action claims', pattern: /\bperfectly\s+timed\b|\bcaptured\s+more\s+deliberately\b|\byou\s+(?:waited\s+for|meant\s+to)\b/gi, priority: 60 },
+  { label: 'unsupported circumstance or chance claims', pattern: /\b(?:caused|arranged)\s+by\s+(?:circumstance|chance)\b|\bby\s+(?:circumstance|chance)\b|\bnot\s+(?:by\s+)?design\b/gi, priority: 60 }
 ];
+
+function critiqueClauses(text) {
+  return [...text.matchAll(/[^,;.!?]+(?:[,;.!?]+|$)/g)]
+    .map(match => ({ text: match[0] }))
+    .filter(clause => clause.text.trim());
+}
+
+function uncertaintyScopes(clause) {
+  const scopes = [];
+  const addScope = (match, markerLength) => {
+    const end = clause.search(/\b(?:but|however|although|while)\b/i);
+    scopes.push({ start: match.index + markerLength, end: end < 0 ? clause.length : end });
+  };
+  for (const match of clause.matchAll(/\b(?:unclear|uncertain|unknown)\s+whether\b/gi)) addScope(match, match[0].length);
+  for (const match of clause.matchAll(/\b(?:does not|doesn't|cannot|can't|can not)\s+(?:establish|reveal|determine|show|tell|indicate|confirm)\s+whether\b/gi)) addScope(match, match[0].length);
+  for (const match of clause.matchAll(/\b(?:we\s+)?cannot\s+determine\s+whether\b/gi)) addScope(match, match[0].length);
+  for (const match of clause.matchAll(/\bthere is not enough evidence\s+to\s+(?:call|say|determine|know)\b/gi)) addScope(match, match[0].length);
+  return scopes;
+}
+
+function isUncertaintyScoped(match, scopes) {
+  return scopes.some(scope => match.index >= scope.start && match.index + match[0].length <= scope.end);
+}
 
 export function findCritiquePolicyViolations(feedback) {
   if (!Array.isArray(feedback?.sections)) return [];
   const violations = [];
   for (const [sectionIndex, section] of feedback.sections.entries()) {
-    for (const [label, pattern] of structuredCritiquePolicyRules) {
-      const matcher = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
-      for (const match of section.content.matchAll(matcher)) {
-        violations.push({ sectionNumber: sectionIndex + 1, heading: section.heading, excerpt: match[0], label });
+    for (const clause of critiqueClauses(section.content)) {
+      const scopes = uncertaintyScopes(clause.text);
+      const candidates = [];
+      for (const rule of structuredCritiquePolicyRules) {
+        for (const match of clause.text.matchAll(rule.pattern)) {
+          if (rule.priority < 100 && isUncertaintyScoped(match, scopes)) continue;
+          candidates.push({ ...rule, start: match.index, end: match.index + match[0].length, excerpt: match[0] });
+        }
       }
+      // Specific contextual matches win over vocabulary fallbacks, so one claim
+      // produces one useful correction target instead of duplicate token hits.
+      candidates.sort((a, b) => a.start - b.start || b.priority - a.priority || b.end - a.end);
+      const selected = [];
+      for (const candidate of candidates) {
+        if (selected.some(existing => candidate.start < existing.end && candidate.end > existing.start)) continue;
+        selected.push(candidate);
+      }
+      selected.sort((a, b) => a.start - b.start);
+      for (const match of selected) violations.push({ sectionNumber: sectionIndex + 1, heading: section.heading, excerpt: match.excerpt, label: match.label });
     }
   }
   return violations;
