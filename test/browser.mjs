@@ -57,7 +57,8 @@ try {
   steps.push('New Feedback imports feedback-new.html and binds prompt/model data');
 
   await page.setInputFiles('#image-file', { name: 'bad.txt', mimeType: 'text/plain', buffer: Buffer.from('not an image') });
-  assert.match(await page.locator('#error').textContent(), /JPEG/);
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /JPEG/);
+  assert.equal(await page.locator('[data-name="output text"][role="alert"]').count(), 1);
   await page.setInputFiles('#image-file', imagePath);
   await page.selectOption('#prompt', 'photography-review');
   await page.waitForFunction(() => !document.querySelector('#model').disabled && document.querySelector('[data-name="Feedback / File"]')?.style.backgroundImage);

@@ -124,6 +124,20 @@
   word-break: break-word;
 }
 
+#director-app .source-frame .director-chat-transient-error {
+  width: 702px;
+  margin: 0 auto 16px;
+  color: var(--color-ui-text-primary, rgba(242, 240, 237, 1));
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.2px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 #director-app .source-frame .director-chat-layout > [data-name="Prompt / Editor"] {
   position: relative;
   flex: none;

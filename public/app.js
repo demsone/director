@@ -15,11 +15,12 @@ let phase = 'new';
 let pending = null;
 let imageVersion = 0;
 let chatRequest = null;
+let visibleError = '';
+let chatError = '';
 let promptSelect;
 let modelSelect;
 let imageInput;
 let messageInput;
-let errorNode;
 let statusNode;
 
 const $ = (selector, scope = document) => scope.querySelector(selector);
@@ -40,13 +41,74 @@ function setText(node, value) {
 function normalized(value) { return String(value || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
 function nodeText(node) { return node?.textContent?.replace(/\s+/g, ' ').trim() || ''; }
 
+function feedbackOutput(root) { return firstNamed('content-right', root); }
+
+function renderFeedbackError(root, message) {
+  const outputField = feedbackOutput(root);
+  if (!outputField) return;
+  setText(firstNamed('heading', outputField), 'ERROR');
+  const output = firstNamed('output text', outputField);
+  setText(output, message);
+  output?.setAttribute('role', 'alert');
+  output?.setAttribute('aria-live', 'assertive');
+  output?.setAttribute('aria-atomic', 'true');
+}
+
+function clearFeedbackErrorSemantics(root) {
+  const output = firstNamed('output text', feedbackOutput(root));
+  output?.removeAttribute('role');
+  output?.removeAttribute('aria-live');
+  output?.removeAttribute('aria-atomic');
+}
+
+function renderDefaultFeedbackOutput(root) {
+  clearFeedbackErrorSemantics(root);
+  if (phase === 'new') {
+    const output = firstNamed('output text', feedbackOutput(root));
+    setText(firstNamed('heading', feedbackOutput(root)), image ? 'READY FOR FEEDBACK' : 'NOTHING TO FEEDBACK');
+    setText(output, image ? `${image.name} selected.` : 'Select an image to start feedback.');
+  } else if (phase === 'thinking') {
+    setText(firstNamed('heading', feedbackOutput(root)), 'WRITING FEEDBACK');
+    setText(firstNamed('output text', feedbackOutput(root)), '......');
+  } else if (session?.feedback) {
+    renderOutput(root);
+  }
+}
+
 function setError(message = '', raw = '') {
-  if (errorNode) { errorNode.textContent = message; errorNode.hidden = !message; }
+  visibleError = message;
   const rawNode = $('#failed-raw');
   if (rawNode) rawNode.textContent = raw;
+  const root = $('.source-frame', app);
+  if (!root) return;
+  if (message) renderFeedbackError(root, message);
+  else renderDefaultFeedbackOutput(root);
 }
 
 function setStatus(message = '') { if (statusNode) statusNode.textContent = message; }
+
+function renderChatError(root) {
+  const section = firstNamed('prompt-section', root);
+  const editor = firstNamed('Prompt / Editor', section);
+  if (!section || !editor) return;
+  let node = firstNamed('chat-transient-error', section);
+  if (!chatError) { node?.remove(); return; }
+  if (!node) {
+    node = document.createElement('div');
+    node.dataset.name = 'chat-transient-error';
+    node.className = 'director-chat-transient-error';
+    section.insertBefore(node, editor);
+  }
+  node.textContent = chatError;
+  node.setAttribute('role', 'alert');
+  node.setAttribute('aria-live', 'assertive');
+  node.setAttribute('aria-atomic', 'true');
+}
+
+function setChatError(message = '') {
+  chatError = message;
+  renderChatError($('.source-frame', app));
+}
 
 async function api(path, body, signal, method = body ? 'POST' : 'GET') {
   const response = await fetch(path, {
@@ -71,8 +133,36 @@ function setModelBars(root = document) {
   const label = modelLabel(model);
   named('model-name', root).forEach(node => {
     setText(node, label);
-    node.title = model || label;
-    node.setAttribute('aria-label', label);
+    node.title = 'Click to switch loaded model';
+    node.dataset.selectedModel = model;
+    node.setAttribute('aria-label', model ? `Click to switch loaded model. Selected model: ${model}` : label);
+  });
+  bindModelBars(root);
+}
+
+function cycleLoadedModel() {
+  if (session || models.length < 2 || !modelSelect) return;
+  const current = models.findIndex(model => model.id === modelSelect.value);
+  modelSelect.value = models[(current + 1 + models.length) % models.length].id;
+  setModelBars();
+  sync();
+}
+
+function bindModelBars(root) {
+  named('UI / Model Bar', root).forEach(bar => {
+    bar.setAttribute('role', 'button');
+    bar.tabIndex = 0;
+    bar.title = 'Click to switch loaded model';
+    const model = session?.model || modelSelect?.value || '';
+    bar.setAttribute('aria-label', model ? `Click to switch loaded model. Selected model: ${model}` : 'No loaded vision model');
+    if (bar.dataset.modelBarBound === 'true') return;
+    bar.dataset.modelBarBound = 'true';
+    bar.addEventListener('click', event => { event.preventDefault(); cycleLoadedModel(); });
+    bar.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      cycleLoadedModel();
+    });
   });
 }
 
@@ -108,7 +198,6 @@ function createProxyControls() {
     <button id="review" type="button">Get feedback</button>
     <textarea id="message"></textarea>
     <button id="send" type="button">Send</button>
-    <div id="error" role="alert" hidden></div>
     <div id="status" role="status"></div>
     <div id="failed-raw"></div>
   `;
@@ -117,7 +206,6 @@ function createProxyControls() {
   modelSelect = $('#model', controls);
   imageInput = $('#image-file', controls);
   messageInput = $('#message', controls);
-  errorNode = $('#error', controls);
   statusNode = $('#status', controls);
   imageInput.addEventListener('change', () => selectImage(imageInput.files[0]));
   promptSelect.addEventListener('change', () => { renderPrompt(promptSelect.value); sync(); });
@@ -149,6 +237,7 @@ function renderPrompt(promptId) {
   const root = $('.source-frame', app);
   if (!root || !prompt) return;
   setText(firstNamed('prompt-body', root) || firstNamed('prompt-text', root), prompt.instruction || prompt.body || '');
+  setText(firstNamed('photography-input', root), prompt.category || 'Photography');
   const selectors = named('prompt-selector', root);
   if (phase === 'new' && selectors[0]) setText(selectors[0], prompt.name);
   const promptMeta = metaBox(root, 'PROMPT USED');
@@ -182,6 +271,7 @@ function renderNew(root) {
   setText(firstNamed('heading', firstNamed('content-right', root)), image ? 'READY FOR FEEDBACK' : 'NOTHING TO FEEDBACK');
   setText(output, image ? `${image.name} selected.` : 'Select an image to start feedback.');
   if (image) renderImage(root);
+  if (visibleError) renderFeedbackError(root, visibleError);
   bindNewInteractions(root);
 }
 
@@ -226,6 +316,7 @@ function renderTranscript(root) {
     section.classList.remove('director-chat-layout');
     root.classList.remove('director-chat-runtime');
     if (saveButton?.parentElement === section) root.append(saveButton);
+    renderChatError(root);
     return;
   }
 
@@ -251,6 +342,7 @@ function renderTranscript(root) {
   root.classList.add('director-chat-runtime');
   if (saveButton && saveButton.parentElement !== section) section.append(saveButton);
   setComposer(root);
+  renderChatError(root);
 }
 
 function renderComplete(root, detail = false) {
@@ -263,6 +355,8 @@ function renderComplete(root, detail = false) {
   renderImage(root);
   renderOutput(root);
   if (detail) {
+    const titleBody = firstNamed('title-body', root);
+    setText(titleBody?.querySelector('[data-name="Body/12px"]'), `${session.prompt.name || 'Custom prompt'} · ${formatDate(session.createdAt)}`);
     setText(firstNamed('date-created', root), formatDate(session.createdAt));
     setText(firstNamed('UI / Category Badge', metaBox(root, 'SOURCE TYPE')), (session.prompt.category || 'Photography').toUpperCase());
     setText(firstNamed('Body/13px', metaBox(root, 'PROMPT USED')), session.prompt.instruction || session.prompt.body || '');
@@ -383,7 +477,7 @@ async function selectImage(file) {
 }
 
 function startNew() {
-  pending?.abort(); pending = null; session = null; chatRequest = null; phase = 'new';
+  pending?.abort(); pending = null; session = null; chatRequest = null; visibleError = ''; chatError = ''; phase = 'new';
   history.replaceState(null, '', '/');
   mountState('new');
 }
@@ -411,14 +505,14 @@ async function sendChat() {
   const message = leaf(composer)?.textContent.trim();
   if (!message || !session?.id || pending) return;
   chatRequest = chatRequest?.message === message && chatRequest.sessionId === session.id ? chatRequest : { message, sessionId: session.id, id: crypto.randomUUID() };
-  pending = new AbortController(); setError(); setStatus('Director is looking at the image and your conversation…'); sync();
+  pending = new AbortController(); setError(); setChatError(); setStatus('Director is looking at the image and your conversation…'); sync();
   try {
     const data = await api('/api/chat', { sessionId: session.id, revision: session.revision, message, requestId: chatRequest.id }, pending.signal);
     session = data.session; chatRequest = null;
     const root = $('.source-frame', app);
     renderTranscript(root);
     setComposer(root);
-  } catch (error) { setError(error.message, error.raw); setText(firstNamed('prompt-text', $('.source-frame', app)), message); }
+  } catch (error) { setChatError(error.message); setText(firstNamed('prompt-text', $('.source-frame', app)), message); }
   finally { pending = null; setStatus(); sync(); }
 }
 

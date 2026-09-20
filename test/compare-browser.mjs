@@ -70,7 +70,7 @@ try {
   await page.waitForFunction(() => !document.querySelector('#image-file').disabled);
   assert.equal(await page.locator('#review').isDisabled(), true);
   await page.setInputFiles('#image-file-b', { name: 'bad.txt', mimeType: 'text/plain', buffer: Buffer.from('invalid') });
-  assert.match(await page.locator('#error').textContent(), /JPEG/);
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /JPEG/);
   await page.setInputFiles('#image-file-b', { name: 'temporary-b.jpg', mimeType: 'image/jpeg', buffer: bytesA });
   await page.waitForFunction(() => !document.querySelector('#review').disabled);
   // A deterministic, clearly different image makes A/B identity objectively testable.
