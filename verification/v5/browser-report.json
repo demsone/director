@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "model": "deterministic test client; live inference not tested",
+  "checks": [
+    "Upload, prompt/model selection, 11-section Feedback, autosave, contextual chat, failure preserves draft and stored session",
+    "Exactly two labelled Compare images, comparison chat, cancelled mode switch retains draft; Projects and both Libraries reopen canonical sessions",
+    "Full browser and server-process restart preserves renamed Project, exact sessions/images/chat, memberships and continuing comparison",
+    "Membership removal and Project deletion preserve canonical data; session deletion persists across restart; unrelated session survives; SQLite integrity/foreign keys and two remaining assets verified; 390px layouts do not overflow"
+  ],
+  "pids": [
+    67730,
+    67767,
+    67784
+  ],
+  "consoleErrors": []
+}

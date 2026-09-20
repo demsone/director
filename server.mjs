@@ -7,6 +7,16 @@ import { createModelClient } from './src/model.mjs';
 import { SessionStore, uploadImage } from './src/store.mjs';
 
 const files = new Map([['/', ['index.html', 'text/html']], ['/app.js', ['app.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']]]);
+// Explicit approved visual assets only; keep the existing static allowlist and CSP.
+files.set('/visual/PlusJakartaSans-Regular.ttf', ['visual/PlusJakartaSans-Regular.ttf', 'font/ttf']);
+files.set('/visual/PlusJakartaSans-Light.ttf', ['visual/PlusJakartaSans-Light.ttf', 'font/ttf']);
+files.set('/visual/PlusJakartaSans-Medium.ttf', ['visual/PlusJakartaSans-Medium.ttf', 'font/ttf']);
+files.set('/visual/PlusJakartaSans-SemiBold.ttf', ['visual/PlusJakartaSans-SemiBold.ttf', 'font/ttf']);
+files.set('/visual/PlusJakartaSans-Bold.ttf', ['visual/PlusJakartaSans-Bold.ttf', 'font/ttf']);
+files.set('/visual/IBMPlexMono-Regular.ttf', ['visual/IBMPlexMono-Regular.ttf', 'font/ttf']);
+files.set('/visual/IBMPlexMono-SemiBold.ttf', ['visual/IBMPlexMono-SemiBold.ttf', 'font/ttf']);
+files.set('/visual/arrow-up.svg', ['visual/arrow-up.svg', 'image/svg+xml']);
+
 async function generateStructuredReview({ client, model, image, imageB, prompt, signal }) {
   const format = reviewSchema(prompt);
   const messages = originalMessages(image, prompt, systemInstruction, imageB);

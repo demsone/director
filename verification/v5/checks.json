@@ -1,0 +1,20 @@
+{
+  "originalDOMIdsPreserved": 60,
+  "duplicateDOMIds": false,
+  "copiedAssetsByteIdentical": true,
+  "protectedSourceAndDonorsUnchanged": true,
+  "unitTestsPassed": 47,
+  "syntaxChecksPassed": true,
+  "reviewServer": "http://127.0.0.1:4187",
+  "reviewData": "isolated temporary store; not the user database",
+  "liveModel": "No loaded vision model; live inference not verified",
+  "desktopGeometry": {
+    "viewport": 1512,
+    "sidebar": 232,
+    "contentX": 272,
+    "feedbackPanelY": 336,
+    "donorFeedbackPanelY": 336,
+    "uploadWidth": 551,
+    "uploadHeight": 331
+  }
+}
