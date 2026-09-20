@@ -8,3 +8,123 @@
   opacity: 0;
   pointer-events: none;
 }
+
+/* Production-only containment around the fixed donor regions. */
+#director-app .source-frame [data-name="content-right"] [data-name="form-text"] {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+#director-app .source-frame [data-name="content-right"] [data-name="output text"] {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#director-app .source-frame [data-name="prompt-textarea"] [data-name="form-text"],
+#director-app .source-frame [data-name="meta-box"] [data-name="Body/13px"],
+#director-app .source-frame [data-name="meta-box"] [data-name="prompt-selector"] {
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#director-app .source-frame [data-name="prompt-body"],
+#director-app .source-frame [data-name="meta-box"] [data-name="Body/13px"],
+#director-app .source-frame [data-name="meta-box"] [data-name="prompt-selector"],
+#director-app .source-frame [data-name="header-title"] [data-name="Heading/H2 /Semi-Bold/32px/37"] {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.director-actionable {
+  cursor: pointer;
+}
+
+#director-app .source-frame [data-name="prompt-text"] [data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-ui-text-primary, rgba(242, 240, 237, 1));
+  pointer-events: none;
+}
+
+/* The transcript is an approved exception inside the donor Ask Director section. */
+#director-app .source-frame .director-chat-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: auto;
+  min-height: 240px;
+  padding-top: 47px;
+  box-sizing: border-box;
+}
+
+#director-app .source-frame .director-chat-layout > [data-name="top-bar"] {
+  top: 1px;
+  left: 1px;
+}
+
+#director-app .source-frame .director-chat-transcript {
+  position: relative;
+  flex: none;
+  width: 702px;
+  margin: 0 auto 16px;
+  padding: 0 0 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-bottom: 1px solid rgba(52, 52, 52, 1);
+  color: var(--color-ui-text-primary, rgba(242, 240, 237, 1));
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: 0.2px;
+}
+
+#director-app .source-frame .director-chat-turn {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(52, 52, 52, 1);
+}
+
+#director-app .source-frame .director-chat-turn:first-child {
+  border-top: 0;
+}
+
+#director-app .source-frame .director-chat-label {
+  color: var(--color-ui-accent-primary, rgba(185, 90, 54, 1));
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+#director-app .source-frame .director-chat-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#director-app .source-frame .director-chat-layout > [data-name="Prompt / Editor"] {
+  position: relative;
+  flex: none;
+  top: auto;
+  left: auto;
+  margin: 0 auto 0;
+}
+
+#director-app .source-frame .director-chat-layout > [data-name="save-button"] {
+  position: relative;
+  flex: none;
+  top: auto;
+  left: auto;
+  margin: 12px auto 0;
+}

@@ -199,13 +199,60 @@ function renderOutput(root) {
   setText(firstNamed('output text', outputField), structuredFeedbackText(session.feedback));
 }
 
+function setComposer(root) {
+  const composer = firstNamed('prompt-text', root);
+  const target = leaf(composer);
+  if (!target) return;
+  target.textContent = '';
+  target.dataset.placeholder = 'Ask Director';
+}
+
+function renderTranscript(root) {
+  const section = firstNamed('prompt-section', root);
+  const editor = firstNamed('Prompt / Editor', section);
+  if (!section || !editor) return;
+  let transcript = firstNamed('chat-transcript', section);
+  const turns = session?.chat || [];
+  const saveButton = firstNamed('save-button', root);
+
+  if (!turns.length) {
+    transcript?.remove();
+    section.classList.remove('director-chat-layout');
+    root.classList.remove('director-chat-runtime');
+    if (saveButton?.parentElement === section) root.append(saveButton);
+    return;
+  }
+
+  if (!transcript) {
+    transcript = document.createElement('div');
+    transcript.dataset.name = 'chat-transcript';
+    transcript.className = 'director-chat-transcript';
+    section.insertBefore(transcript, editor);
+  }
+  transcript.replaceChildren(...turns.map(turn => {
+    const row = document.createElement('div');
+    row.className = 'director-chat-turn';
+    const label = document.createElement('div');
+    label.className = 'director-chat-label';
+    label.textContent = turn.role === 'user' ? 'You' : 'Director';
+    const content = document.createElement('div');
+    content.className = 'director-chat-content';
+    content.textContent = turn.content || '';
+    row.append(label, content);
+    return row;
+  }));
+  section.classList.add('director-chat-layout');
+  root.classList.add('director-chat-runtime');
+  if (saveButton && saveButton.parentElement !== section) section.append(saveButton);
+  setComposer(root);
+}
+
 function renderComplete(root, detail = false) {
   const title = firstNamed('header-title', root) || firstNamed('title-body', root);
   setText(title?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]') || title, session.title || session.image.name);
   setText(firstNamed('photography-input', root), session.prompt.category || 'Photography');
   setText(firstNamed('prompt-selector', root), session.prompt.name || 'Custom prompt');
   setText(firstNamed('prompt-body', root), session.prompt.instruction || session.prompt.body || '');
-  setText(firstNamed('prompt-text', root), session.chat?.at(-1)?.role === 'assistant' ? session.chat.at(-1).content : 'Lets discuss the photo in more detail.');
   setText(firstNamed('model-name', root), modelLabel(session.model));
   renderImage(root);
   renderOutput(root);
@@ -216,6 +263,8 @@ function renderComplete(root, detail = false) {
     setText(firstNamed('Body/13px', metaBox(root, 'REVIEW BY')), session.model);
     setText(firstNamed('prompt-selector', metaBox(root, 'PROJECT')), 'Not linked');
   }
+  renderTranscript(root);
+  setComposer(root);
   bindRecordInteractions(root, detail);
 }
 
@@ -230,7 +279,7 @@ function sync() {
   const sourceBox = firstNamed('Feedback / File', root);
   if (sourceBox) sourceBox.setAttribute('aria-disabled', String(busy || !!session));
   const action = firstNamed('action-bar', root);
-  if (action) { action.setAttribute('aria-disabled', String(busy || !image || !promptSelect?.value || !modelSelect?.value)); action.style.cursor = busy ? 'wait' : 'pointer'; }
+  if (action) action.setAttribute('aria-disabled', String(busy || !image || !promptSelect?.value || !modelSelect?.value));
 }
 
 function makeClickable(node, handler, label) {
@@ -238,7 +287,7 @@ function makeClickable(node, handler, label) {
   node.dataset.bound = 'true';
   node.setAttribute('role', 'button');
   if (label) node.setAttribute('aria-label', label);
-  node.style.cursor = 'pointer';
+  node.classList.add('director-actionable');
   node.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); handler(event); });
 }
 
@@ -359,7 +408,10 @@ async function sendChat() {
   pending = new AbortController(); setError(); setStatus('Director is looking at the image and your conversation…'); sync();
   try {
     const data = await api('/api/chat', { sessionId: session.id, revision: session.revision, message, requestId: chatRequest.id }, pending.signal);
-    session = data.session; chatRequest = null; setText(firstNamed('prompt-text', $('.source-frame', app)), data.turn?.content || '');
+    session = data.session; chatRequest = null;
+    const root = $('.source-frame', app);
+    renderTranscript(root);
+    setComposer(root);
   } catch (error) { setError(error.message, error.raw); setText(firstNamed('prompt-text', $('.source-frame', app)), message); }
   finally { pending = null; setStatus(); sync(); }
 }
