@@ -67,7 +67,13 @@ function modelLabel(model) {
 }
 
 function setModelBars(root = document) {
-  named('model-name', root).forEach(node => setText(node, modelLabel(session?.model || modelSelect?.value)));
+  const model = session?.model || modelSelect?.value || '';
+  const label = modelLabel(model);
+  named('model-name', root).forEach(node => {
+    setText(node, label);
+    node.title = model || label;
+    node.setAttribute('aria-label', label);
+  });
 }
 
 function normalizeDonorResources(root) {
