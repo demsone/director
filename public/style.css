@@ -210,6 +210,16 @@
   display: block;
 }
 
+/* The Compare composer keeps the saved session model informational and contained
+   within the donor metadata bar; the complete ID remains available via title and aria-label. */
+#director-app .source-frame [data-name="Prompt / Model Selector"] > [data-name="Label Alternative / Small 10px"],
+#director-app .source-frame [data-name="Prompt / Model Selector"] > [data-name="Label Alternative / Small 10px"] .text-content,
+#director-app .source-frame [data-name="Prompt / Model Selector"] > [data-name="Label Alternative / Small 10px"] .text-content > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .director-actionable {
   cursor: pointer;
 }

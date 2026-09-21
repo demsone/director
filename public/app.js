@@ -428,6 +428,17 @@ function setComposer(root) {
   target.dataset.placeholder = 'Ask Director';
 }
 
+function setCompareComposerModel(root) {
+  const selector = firstNamed('Prompt / Model Selector', root);
+  const model = session?.model || '';
+  if (!selector) return;
+  setText(selector, model || 'No saved model');
+  selector.dataset.selectedModel = model;
+  selector.setAttribute('aria-disabled', 'true');
+  selector.title = model || 'No saved Compare session model';
+  selector.setAttribute('aria-label', model ? `Saved Compare model: ${model}` : 'No saved Compare session model');
+}
+
 function renderTranscript(root) {
   const section = firstNamed('prompt-section', root);
   const editor = firstNamed('Prompt / Editor', section);
@@ -519,6 +530,7 @@ function renderCompareComplete(root, detail = false) {
     reviewBy?.setAttribute('aria-label', `Review by ${session.model}`);
   }
   renderTranscript(root);
+  setCompareComposerModel(root);
   setComposer(root);
   bindRecordInteractions(root, detail);
 }
@@ -665,23 +677,21 @@ async function selectImage(file, slot = 'A') {
       reader.readAsDataURL(file);
     });
     const picture = new Image();
-    let previewReady = false;
-    await Promise.race([new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
       picture.onload = resolve;
       picture.onerror = () => reject(new Error('The image could not be decoded.'));
       picture.src = sourceDataUrl;
-      }), new Promise(resolve => setTimeout(resolve, 2000))]);
+    });
     if (version !== imageVersion) return;
-    previewReady = picture.naturalWidth > 0 && picture.naturalHeight > 0;
-    if (previewReady && picture.naturalWidth * picture.naturalHeight > 100000000) throw new Error('This image is too large to preview safely.');
-    let dataUrl = sourceDataUrl, reviewWidth = picture.naturalWidth || 1, reviewHeight = picture.naturalHeight || 1;
-    if (previewReady) {
-      const scale = Math.min(1, 1600 / Math.max(picture.naturalWidth, picture.naturalHeight));
-      const canvas = document.createElement('canvas'); canvas.width = Math.round(picture.naturalWidth * scale); canvas.height = Math.round(picture.naturalHeight * scale);
-      const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(picture, 0, 0, canvas.width, canvas.height);
-      dataUrl = canvas.toDataURL('image/jpeg', 0.92); reviewWidth = canvas.width; reviewHeight = canvas.height;
-    }
-    const selected = { name: file.name, sourceDataUrl, dataUrl, width: picture.naturalWidth || 1, height: picture.naturalHeight || 1, reviewWidth, reviewHeight };
+    const width = picture.naturalWidth;
+    const height = picture.naturalHeight;
+    if (!width || !height) throw new Error('The image could not be decoded.');
+    if (width * height > 100000000) throw new Error('This image is too large to preview safely.');
+    const scale = Math.min(1, 1600 / Math.max(width, height));
+    const canvas = document.createElement('canvas'); canvas.width = Math.round(width * scale); canvas.height = Math.round(height * scale);
+    const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const selected = { name: file.name, sourceDataUrl, dataUrl, width, height, reviewWidth: canvas.width, reviewHeight: canvas.height };
     if (mode === 'compare' && slot === 'B') imageB = selected;
     else image = selected;
     const root = $('.source-frame', app);

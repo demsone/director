@@ -53,7 +53,9 @@ const sections = [
 ];
 let saved;
 let compareRequests = [];
+let feedbackRequests = [];
 let chatRequests = [];
+let delayedCompare = true;
 let compareAttempts = 0;
 let chatAttempts = 0;
 
@@ -64,7 +66,7 @@ const context = await browser.newContext({ viewport: { width: 1512, height: 1100
 const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', error => pageErrors.push(error.message));
-await page.route('**/api/**', async route => {
+async function routeApi(route) {
   const request = route.request();
   const url = new URL(request.url());
   if (request.method() === 'GET' && url.pathname === '/api/prompts') return route.fulfill(response({ prompts }));
@@ -74,10 +76,28 @@ await page.route('**/api/**', async route => {
       { id: 'vision-model-two-with-a-deliberately-long-loaded-model-identifier', name: 'Vision Two' }
     ] }));
   }
+  if (request.method() === 'POST' && url.pathname === '/api/feedback') {
+    const body = JSON.parse(request.postData());
+    feedbackRequests.push(body);
+    return route.fulfill(response({ session: {
+      id: 'feedback-mock', revision: 1, type: 'feedback', createdAt: '2026-09-21T02:00:00.000Z', updatedAt: '2026-09-21T02:00:00.000Z',
+      title: body.image.name, image: body.image, prompt: prompts.find(prompt => prompt.id === body.promptId), model: body.model,
+      feedback: { raw: 'mock raw feedback', sections: [{ heading: 'First impression', content: 'The delayed image decoded before review.' }] }, chat: []
+    } }));
+  }
   if (request.method() === 'GET' && url.pathname === '/api/sessions/compare-mock') return route.fulfill(response({ session: saved }));
   if (request.method() === 'POST' && url.pathname === '/api/compare') {
     const body = JSON.parse(request.postData());
     compareRequests.push(body);
+    if (delayedCompare) {
+      delayedCompare = false;
+      saved = {
+        id: 'compare-delayed-mock', revision: 1, type: 'compare', createdAt: '2026-09-21T02:30:00.000Z', updatedAt: '2026-09-21T02:30:00.000Z',
+        title: 'Delayed Compare preparation', image: image(body.image.name, body.image.sourceDataUrl), imageB: image(body.imageB.name, body.imageB.sourceDataUrl),
+        prompt: comparePrompts.find(prompt => prompt.id === body.promptId), model: body.model, feedback: { raw: 'mock delayed comparison', sections }, chat: []
+      };
+      return route.fulfill(response({ session: saved }));
+    }
     compareAttempts += 1;
     if (compareAttempts === 1) {
       await new Promise(resolveDelay => setTimeout(resolveDelay, 180));
@@ -110,7 +130,8 @@ await page.route('**/api/**', async route => {
     return route.fulfill(response({ session: saved }));
   }
   return route.continue();
-});
+}
+await page.route('**/api/**', routeApi);
 
 async function screenshot(name) {
   await page.screenshot({ path: join(evidence, name), fullPage: true });
@@ -130,7 +151,79 @@ async function openCompareNew() {
   await page.waitForFunction(() => document.body.dataset.screen === 'compare-new');
 }
 
+async function assertPreparedImage(imageValue, sourceDataUrl, label) {
+  assert.ok(imageValue.width > 1 && imageValue.height > 1, `${label} must use decoded natural dimensions`);
+  assert.ok(imageValue.reviewWidth > 1 && imageValue.reviewHeight > 1, `${label} must use real bounded review dimensions`);
+  assert.notEqual(imageValue.dataUrl, sourceDataUrl, `${label} must not submit original bytes as the review image`);
+  assert.match(imageValue.dataUrl, /^data:image\/jpeg;base64,/i, `${label} must submit the normal JPEG review image`);
+}
+
+async function runDelayedDecodeRegression() {
+  const delayedContext = await browser.newContext({ viewport: { width: 1512, height: 1100 }, locale: 'en-AU' });
+  await delayedContext.addInitScript(() => {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    const delayMs = 2400;
+    Object.defineProperty(HTMLImageElement.prototype, 'src', {
+      configurable: descriptor.configurable,
+      enumerable: descriptor.enumerable,
+      get: descriptor.get,
+      set(value) {
+        if (typeof value !== 'string' || !value.startsWith('data:image/')) return descriptor.set.call(this, value);
+        const load = this.onload;
+        const error = this.onerror;
+        this.onload = null;
+        this.onerror = null;
+        const release = event => setTimeout(() => (event.type === 'load' ? load : error)?.call(this, event), delayMs);
+        this.addEventListener('load', release, { once: true });
+        this.addEventListener('error', release, { once: true });
+        descriptor.set.call(this, value);
+      }
+    });
+  });
+  const delayedPage = await delayedContext.newPage();
+  await delayedPage.route('**/api/**', routeApi);
+  try {
+    await delayedPage.goto(base);
+    await delayedPage.waitForFunction(() => document.querySelector('#model')?.value && document.body.dataset.screen === 'feedback-new');
+    await delayedPage.setInputFiles('#image-file', imageAPath);
+    await delayedPage.waitForTimeout(2100);
+    assert.equal(feedbackRequests.length, 0, 'delayed Feedback decode must not submit before decode completes');
+    assert.equal(await delayedPage.locator('[data-name="action-bar"]').getAttribute('aria-disabled'), 'true', 'delayed Feedback decode must not enable submission');
+    assert.equal(await delayedPage.locator('[data-name="Feedback / File"]').evaluate(node => node.style.backgroundImage), '', 'delayed Feedback decode must not mount an undecoded preview');
+    await delayedPage.waitForFunction(() => document.querySelector('[data-name="Feedback / File"]')?.style.backgroundImage);
+    await delayedPage.locator('[data-name="action-bar"]').click();
+    await delayedPage.waitForFunction(() => document.body.dataset.screen === 'feedback-complete');
+    const feedbackBody = feedbackRequests.at(-1);
+    assertPreparedImage(feedbackBody.image, feedbackBody.image.sourceDataUrl, 'Feedback');
+
+    await delayedPage.goto(base);
+    await delayedPage.waitForFunction(() => document.querySelector('#model')?.value && document.body.dataset.screen === 'feedback-new');
+    await delayedPage.locator('.source-frame a[aria-label="compare-new"]').click();
+    await delayedPage.waitForFunction(() => document.body.dataset.screen === 'compare-new');
+    await delayedPage.setInputFiles('#image-file', imageAPath);
+    await delayedPage.waitForTimeout(2100);
+    assert.equal(await delayedPage.locator('[data-name="Feedback / File"]').getAttribute('data-image-a'), '', 'delayed Compare decode must not select Image A early');
+    await delayedPage.waitForFunction(() => document.querySelector('[data-name="Feedback / File"]')?.getAttribute('data-image-a'));
+    await delayedPage.setInputFiles('#image-file-b', imageBPath);
+    await delayedPage.waitForTimeout(2100);
+    assert.equal(await delayedPage.locator('[data-name="Feedback / File"]').getAttribute('data-image-b'), '', 'delayed Compare decode must not select Image B early');
+    await delayedPage.waitForFunction(() => document.querySelector('[data-name="Feedback / File"]')?.getAttribute('data-image-b'));
+    await delayedPage.selectOption('#prompt', 'compare-general');
+    await delayedPage.locator('[data-name="UI / Button"]').filter({ hasText: 'COMPARE SOURCES' }).click();
+    await delayedPage.waitForFunction(() => document.body.dataset.screen === 'compare-complete');
+    const compareBody = compareRequests.at(-1);
+    assertPreparedImage(compareBody.image, compareBody.image.sourceDataUrl, 'Compare Image A');
+    assertPreparedImage(compareBody.imageB, compareBody.imageB.sourceDataUrl, 'Compare Image B');
+    return { feedback: feedbackBody.image, compare: { image: compareBody.image, imageB: compareBody.imageB } };
+  } finally {
+    await delayedPage.close();
+    await delayedContext.close();
+  }
+}
+
 try {
+  const delayedDecode = await runDelayedDecodeRegression();
+  compareRequests = [];
   for (const [path, name] of [
     ['compare-new.html', 'donor-compare-new.png'],
     ['compare-thinking.html', 'donor-compare-thinking.png'],
@@ -142,7 +235,12 @@ try {
   }
 
   await openCompareNew();
-  await screenshot('production-compare-new.png');
+  await page.selectOption('#prompt', 'compare-general');
+  assert.match(await page.locator('body').innerText(), /Compare two photographs or designs\./);
+  assert.match(await page.locator('[data-name="project-link"]').textContent(), /Select project/);
+  assert.match(await page.locator('[data-name="action-bar"] [data-name="photography-input"]').textContent(), /Compare two images/);
+  assert.doesNotMatch(await page.locator('body').innerText(), /2[–-]6 photographs/);
+  await screenshot('production-compare-new-final.png');
   assert.equal(await page.locator('#prompt option').count(), comparePrompts.length);
   await page.setInputFiles('#image-file', imageAPath);
   await page.locator('[data-name="UI / Button"]').filter({ hasText: 'COMPARE SOURCES' }).click({ force: true });
@@ -206,6 +304,24 @@ try {
   assert.equal(compareRequests.at(-1).image.name, imageAName);
   assert.equal(compareRequests.at(-1).imageB.name, imageBName);
   assert.equal(compareRequests.at(-1).model, 'vision-model-two-with-a-deliberately-long-loaded-model-identifier');
+  const expectedSavedModel = 'vision-model-two-with-a-deliberately-long-loaded-model-identifier';
+  const completeComposerModel = page.locator('[data-name="Prompt / Model Selector"]');
+  assert.equal((await completeComposerModel.textContent()).trim(), expectedSavedModel);
+  assert.equal(await completeComposerModel.getAttribute('title'), expectedSavedModel);
+  assert.match(await completeComposerModel.getAttribute('aria-label'), new RegExp(expectedSavedModel));
+  assert.equal(await completeComposerModel.getAttribute('aria-disabled'), 'true');
+  assert.notEqual(await completeComposerModel.getAttribute('role'), 'button');
+  assert.doesNotMatch(await page.locator('body').innerText(), /GEMMA-4/);
+  const completeComposerGeometry = await completeComposerModel.evaluate(node => {
+    const label = node.querySelector('[data-name="Label Alternative / Small 10px"]');
+    const text = label?.querySelector('.text-content');
+    const rect = label?.getBoundingClientRect();
+    return { label: rect && { width: rect.width, height: rect.height }, overflow: text && getComputedStyle(text).overflow, whiteSpace: text && getComputedStyle(text).whiteSpace, textOverflow: text && getComputedStyle(text).textOverflow };
+  });
+  assert.ok(completeComposerGeometry.label.width > 0 && completeComposerGeometry.label.height > 0);
+  assert.equal(completeComposerGeometry.overflow, 'hidden');
+  assert.equal(completeComposerGeometry.whiteSpace, 'nowrap');
+  assert.equal(completeComposerGeometry.textOverflow, 'ellipsis');
   assert.equal(await page.locator('[data-name="image.jpg"]:visible').count(), 2);
   assert.equal(await page.locator('[data-name="Recommendations"]').isHidden(), true, 'recommendation fixtures must be hidden at runtime');
   assert.doesNotMatch(await page.locator('body').innerText(), /Director Recommendations|#1 · Option 1|#2 · Option 2/);
@@ -238,6 +354,13 @@ try {
   assert.match(await page.locator('[data-name="output text"]').textContent(), /Structure/);
   assert.match(await page.locator('[data-name="output text"]').textContent(), /Which reads more strongly/);
   assert.equal(await page.locator('[data-name="prompt-selector"]').filter({ hasText: 'Not linked' }).count(), 1);
+  const detailComposerModel = page.locator('[data-name="Prompt / Model Selector"]');
+  assert.equal(await page.locator('#model').inputValue(), 'vision-model-one', 'Detail must not use the currently loaded model as the saved model display');
+  assert.equal((await detailComposerModel.textContent()).trim(), expectedSavedModel);
+  assert.equal(await detailComposerModel.getAttribute('title'), expectedSavedModel);
+  assert.match(await detailComposerModel.getAttribute('aria-label'), new RegExp(expectedSavedModel));
+  assert.equal(await detailComposerModel.getAttribute('aria-disabled'), 'true');
+  assert.doesNotMatch(await page.locator('body').innerText(), /GEMMA-4/);
   assert.doesNotMatch(await page.locator('body').innerText(), /Diego De Nicola Collection/);
   const detailOutput = await page.locator('[data-name="reply"]').evaluate(reply => {
     const output = reply.querySelector('[data-name="output text"]');
@@ -271,6 +394,7 @@ try {
     sectionsRendered: sections.length,
     requestOrder: [compareRequests.at(-1).image.name, compareRequests.at(-1).imageB.name],
     visibleErrors: ['one image', 'invalid image', 'Compare failure', 'chat failure'],
+    delayedDecode: { feedback: { width: delayedDecode.feedback.width, height: delayedDecode.feedback.height, reviewWidth: delayedDecode.feedback.reviewWidth, reviewHeight: delayedDecode.feedback.reviewHeight }, compare: { imageA: { width: delayedDecode.compare.image.width, height: delayedDecode.compare.image.height, reviewWidth: delayedDecode.compare.image.reviewWidth, reviewHeight: delayedDecode.compare.image.reviewHeight }, imageB: { width: delayedDecode.compare.imageB.width, height: delayedDecode.compare.imageB.height, reviewWidth: delayedDecode.compare.imageB.reviewWidth, reviewHeight: delayedDecode.compare.imageB.reviewHeight } } },
     screenshots: evidence
   }, null, 2));
 } finally {

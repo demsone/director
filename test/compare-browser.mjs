@@ -117,6 +117,10 @@ try {
   console.log('Generating one real V5 comparison with a photograph in A and distinct geometric artwork in B…');
   const began = Date.now(); compare = (await apiAction('/api/compare', () => page.locator('[data-name="UI / Button"]').filter({ hasText: 'COMPARE SOURCES' }).click())).session; result.compareSeconds = (Date.now() - began) / 1000;
   assert.equal(compare.type, 'compare'); assert.equal(compare.feedback.sections.length, 11); assert.equal(compare.image.name, 'image-a.jpg'); assert.equal(compare.imageB.name, 'image-b.png'); assert.equal(compare.image.sourceDataUrl, sourceA); assert.equal(compare.imageB.sourceDataUrl, sourceB); assert.doesNotMatch(compare.feedback.raw, prohibited);
+  assert.match(compare.feedback.sections[1].content, /yellow|fabric|cloth|chair/i, 'initial Image A review must contain image-specific evidence');
+  assert.match(compare.feedback.sections[2].content, /circle/i, 'initial Image B review must identify the circle');
+  assert.match(compare.feedback.sections[2].content, /square|rectangle/i, 'initial Image B review must identify the square or rectangle');
+  assert.match(compare.feedback.sections[2].content, /blue|red/i, 'initial Image B review must contain its relevant colour evidence');
   result.steps.push('V5 Compare submits exactly two labelled sources and the real structured response distinguishes the A/B pair');
 
   await chat('For Image A only, name the main coloured object and describe what sits to its right. We will call this comparison "Pair study". Keep the reply short.'); assert.match(result.replies[0], /yellow/i); assert.match(result.replies[0], /chair/i);
