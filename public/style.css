@@ -24,6 +24,21 @@
   word-break: break-word;
 }
 
+/* Compare uses the approved reply region instead of Feedback's content-right. */
+#director-app .source-frame [data-name="reply"] [data-name="form-text"] {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+#director-app .source-frame [data-name="reply"] [data-name="output text"] {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 #director-app .source-frame [data-name="prompt-textarea"] [data-name="form-text"],
 #director-app .source-frame [data-name="meta-box"] [data-name="Body/13px"],
 #director-app .source-frame [data-name="meta-box"] [data-name="prompt-selector"] {

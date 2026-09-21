@@ -4,13 +4,19 @@ const donorFiles = {
   new: 'feedback-new.html',
   thinking: 'feedback-thinking.html',
   complete: 'feedback-complete.html',
-  detail: 'feedback-detail.html'
+  detail: 'feedback-detail.html',
+  compareNew: 'compare-new.html',
+  compareThinking: 'compare-thinking.html',
+  compareComplete: 'compare-complete.html',
+  compareDetail: 'compare-detail.html'
 };
 
 let prompts = [];
 let models = [];
 let image = null;
+let imageB = null;
 let session = null;
+let mode = 'feedback';
 let phase = 'new';
 let pending = null;
 let imageVersion = 0;
@@ -43,8 +49,10 @@ function nodeText(node) { return node?.textContent?.replace(/\s+/g, ' ').trim() 
 
 function feedbackOutput(root) { return firstNamed('content-right', root); }
 
+function outputRegion(root) { return feedbackOutput(root) || firstNamed('reply', root); }
+
 function renderFeedbackError(root, message) {
-  const outputField = feedbackOutput(root);
+  const outputField = outputRegion(root);
   if (!outputField) return;
   setText(firstNamed('heading', outputField), 'ERROR');
   const output = firstNamed('output text', outputField);
@@ -55,7 +63,7 @@ function renderFeedbackError(root, message) {
 }
 
 function clearFeedbackErrorSemantics(root) {
-  const output = firstNamed('output text', feedbackOutput(root));
+  const output = firstNamed('output text', outputRegion(root));
   output?.removeAttribute('role');
   output?.removeAttribute('aria-live');
   output?.removeAttribute('aria-atomic');
@@ -63,13 +71,16 @@ function clearFeedbackErrorSemantics(root) {
 
 function renderDefaultFeedbackOutput(root) {
   clearFeedbackErrorSemantics(root);
-  if (phase === 'new') {
-    const output = firstNamed('output text', feedbackOutput(root));
-    setText(firstNamed('heading', feedbackOutput(root)), image ? 'READY FOR FEEDBACK' : 'NOTHING TO FEEDBACK');
-    setText(output, image ? `${image.name} selected.` : 'Select an image to start feedback.');
-  } else if (phase === 'thinking') {
-    setText(firstNamed('heading', feedbackOutput(root)), 'WRITING FEEDBACK');
-    setText(firstNamed('output text', feedbackOutput(root)), '......');
+  const outputField = outputRegion(root);
+  if (!outputField) return;
+  if (phase === 'new' || phase === 'compareNew') {
+    const output = firstNamed('output text', outputField);
+    const ready = mode === 'compare' ? Boolean(image && imageB) : Boolean(image);
+    setText(firstNamed('heading', outputField), mode === 'compare' ? (ready ? 'READY TO COMPARE' : 'NOTHING TO COMPARE') : (ready ? 'READY FOR FEEDBACK' : 'NOTHING TO FEEDBACK'));
+    setText(output, mode === 'compare' ? (ready ? `${image.name} · ${imageB.name} selected.` : 'Select 2 images to start comparing.') : (image ? `${image.name} selected.` : 'Select an image to start feedback.'));
+  } else if (phase === 'thinking' || phase === 'compareThinking') {
+    setText(firstNamed('heading', outputField), mode === 'compare' ? 'COMPARING SOURCES' : 'WRITING FEEDBACK');
+    setText(firstNamed('output text', outputField), '......');
   } else if (session?.feedback) {
     renderOutput(root);
   }
@@ -179,13 +190,14 @@ function normalizeDonorResources(root) {
 
 async function loadDonor(state) {
   const response = await fetch(`${DONOR_BASE}${donorFiles[state]}`, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`Could not load approved ${state} feedback donor.`);
+  if (!response.ok) throw new Error(`Could not load approved ${state} donor.`);
   const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
   const source = parsed.querySelector('.source-frame');
   if (!source) throw new Error(`Approved ${state} feedback donor has no source frame.`);
   normalizeDonorResources(source);
   app.replaceChildren(document.importNode(source, true));
-  document.body.dataset.screen = `feedback-${state}`;
+  const screenNames = { new: 'feedback-new', thinking: 'feedback-thinking', complete: 'feedback-complete', detail: 'feedback-detail', compareNew: 'compare-new', compareThinking: 'compare-thinking', compareComplete: 'compare-complete', compareDetail: 'compare-detail' };
+  document.body.dataset.screen = screenNames[state] || state;
   return $('.source-frame', app);
 }
 
@@ -196,6 +208,7 @@ function createProxyControls() {
   controls.setAttribute('aria-hidden', 'true');
   controls.innerHTML = `
     <input id="image-file" type="file" accept="image/jpeg,image/png,image/webp">
+    <input id="image-file-b" type="file" accept="image/jpeg,image/png,image/webp">
     <select id="prompt"></select>
     <select id="model"></select>
     <button id="review" type="button">Get feedback</button>
@@ -208,15 +221,18 @@ function createProxyControls() {
   promptSelect = $('#prompt', controls);
   modelSelect = $('#model', controls);
   imageInput = $('#image-file', controls);
+  const imageBInput = $('#image-file-b', controls);
   messageInput = $('#message', controls);
   statusNode = $('#status', controls);
   imageInput.addEventListener('change', () => selectImage(imageInput.files[0]));
+  imageBInput.addEventListener('change', () => selectImage(imageBInput.files[0], 'B'));
   promptSelect.addEventListener('change', () => { renderPrompt(promptSelect.value); sync(); });
   modelSelect.addEventListener('change', () => { setModelBars(); sync(); });
 }
 
 function populatePrompts(selected = promptSelect?.value) {
-  const feedbackPrompts = prompts.filter(prompt => (prompt.sessionType || 'feedback') === 'feedback');
+  const sessionType = mode === 'compare' ? 'compare' : 'feedback';
+  const feedbackPrompts = prompts.filter(prompt => (prompt.sessionType || 'feedback') === sessionType);
   promptSelect.replaceChildren();
   for (const category of [...new Set(feedbackPrompts.map(prompt => prompt.category))]) {
     const group = document.createElement('optgroup');
@@ -231,6 +247,8 @@ function populatePrompts(selected = promptSelect?.value) {
 
 function selectedPrompt() { return prompts.find(prompt => prompt.id === promptSelect?.value) || session?.prompt || null; }
 
+function comparePromptSelector(root) { return firstNamed('action-bar', root)?.querySelector('[data-name="photography-input"]') || null; }
+
 function metaBox(root, label) {
   return named('meta-box', root).find(box => normalized(nodeText(firstNamed('form-label', box))).includes(normalized(label))) || null;
 }
@@ -238,11 +256,19 @@ function metaBox(root, label) {
 function renderPrompt(promptId) {
   const prompt = prompts.find(item => item.id === promptId) || session?.prompt;
   const root = $('.source-frame', app);
-  if (!root || !prompt) return;
+  if (!root) return;
+  if (!prompt) {
+    setText(firstNamed('prompt-body', root) || firstNamed('prompt-text', root), '');
+    const selectors = named('prompt-selector', root);
+    if (phase === 'compareNew' && selectors[0]) setText(selectors[0], 'Select prompt');
+    if (phase === 'compareNew') setText(comparePromptSelector(root), 'Select prompt');
+    return;
+  }
   setText(firstNamed('prompt-body', root) || firstNamed('prompt-text', root), prompt.instruction || prompt.body || '');
   setText(firstNamed('photography-input', root), prompt.category || 'Photography');
   const selectors = named('prompt-selector', root);
-  if (phase === 'new' && selectors[0]) setText(selectors[0], prompt.name);
+  if ((phase === 'new' || phase === 'compareNew') && selectors[0]) setText(selectors[0], prompt.name);
+  if (phase === 'compareNew') setText(comparePromptSelector(root), prompt.name);
   const promptMeta = metaBox(root, 'PROMPT USED');
   if (promptMeta) setText(firstNamed('Body/13px', promptMeta), prompt.instruction || prompt.body || '');
 }
@@ -258,6 +284,33 @@ function setImageSource(node, selected) {
   }
 }
 
+function compareImageSlots(root) {
+  return named('image.jpg', root);
+}
+
+function renderCompareImages(root) {
+  const slots = compareImageSlots(root);
+  const selected = [session?.image || image, session?.imageB || imageB];
+  slots.forEach((slot, index) => {
+    const value = selected[index];
+    slot.hidden = !value || index > 1;
+    slot.setAttribute('aria-hidden', String(slot.hidden));
+    if (value) {
+      slot.dataset.imageRole = index === 0 ? 'Image A' : 'Image B';
+      setImageSource(slot, value);
+      const imageNode = $('img.source-image', slot);
+      if (imageNode) imageNode.alt = `${index === 0 ? 'Image A' : 'Image B'}: ${value.name}`;
+    }
+  });
+}
+
+function suppressCompareRecommendations(root) {
+  named('Recommendations', root).forEach(node => {
+    node.hidden = true;
+    node.setAttribute('aria-hidden', 'true');
+  });
+}
+
 function renderImage(root = $('.source-frame', app)) {
   if (!root || !image) return;
   setImageSource(firstNamed('Feedback / File', root), image);
@@ -265,6 +318,7 @@ function renderImage(root = $('.source-frame', app)) {
 }
 
 function renderNew(root) {
+  if (mode === 'compare') return renderCompareNew(root);
   const selectors = named('prompt-selector', root);
   const sourceType = firstNamed('photography-input', root);
   setText(sourceType, selectedPrompt()?.category || 'Photography');
@@ -278,14 +332,38 @@ function renderNew(root) {
   bindNewInteractions(root);
 }
 
+function renderCompareNew(root) {
+  const sourceType = firstNamed('photography-input', root);
+  setText(sourceType, 'Compare');
+  setText(comparePromptSelector(root), selectedPrompt()?.name || 'Select prompt');
+  const fileBox = firstNamed('Feedback / File', root);
+  fileBox.dataset.imageA = image?.name || '';
+  fileBox.dataset.imageB = imageB?.name || '';
+  setText(firstNamed('label', fileBox), image && imageB ? 'Image A + Image B' : 'Select images');
+  setText(firstNamed('Label/26px', fileBox), image && imageB ? `${image.name} · ${imageB.name}` : 'Drop A + B here');
+  renderDefaultFeedbackOutput(root);
+  if (visibleError) renderFeedbackError(root, visibleError);
+  bindCompareNewInteractions(root);
+}
+
 function renderThinking(root) {
+  if (mode === 'compare') return renderCompareThinking(root);
   setText(firstNamed('header-body', root)?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]'), session?.image?.name || image?.name || 'Feedback');
   setText(firstNamed('photography-input', root), session?.prompt?.category || selectedPrompt()?.category || 'Photography');
   setText(firstNamed('prompt-selector', root), session?.prompt?.name || selectedPrompt()?.name || 'Select prompt');
-  setText(firstNamed('prompt-body', root), session?.prompt?.instruction || session?.prompt?.body || selectedPrompt()?.instruction || '');
   setText(firstNamed('heading', firstNamed('content-right', root)), 'WRITING FEEDBACK');
   setText(firstNamed('output text', firstNamed('content-right', root)), '......');
   renderImage(root);
+}
+
+function renderCompareThinking(root) {
+  setText(firstNamed('header-body', root)?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]'), 'Compare');
+  setText(firstNamed('photography-input', root), 'Compare');
+  setText(comparePromptSelector(root), session?.prompt?.name || selectedPrompt()?.name || 'Select prompt');
+  renderCompareImages(root);
+  suppressCompareRecommendations(root);
+  setText(firstNamed('heading', outputRegion(root)), 'COMPARING SOURCES');
+  setText(firstNamed('output text', outputRegion(root)), '......');
 }
 
 function structuredFeedbackText(feedback) {
@@ -293,8 +371,8 @@ function structuredFeedbackText(feedback) {
 }
 
 function renderOutput(root) {
-  const outputField = firstNamed('content-right', root);
-  setText(firstNamed('heading', outputField), 'FEEDBACK');
+  const outputField = outputRegion(root);
+  setText(firstNamed('heading', outputField), mode === 'compare' ? 'FIRST READ' : 'FEEDBACK');
   setText(firstNamed('output text', outputField), structuredFeedbackText(session.feedback));
 }
 
@@ -349,6 +427,7 @@ function renderTranscript(root) {
 }
 
 function renderComplete(root, detail = false) {
+  if (mode === 'compare') return renderCompareComplete(root, detail);
   const title = firstNamed('header-title', root) || firstNamed('title-body', root);
   setText(title?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]') || title, session.title || session.image.name);
   setText(firstNamed('photography-input', root), session.prompt.category || 'Photography');
@@ -371,6 +450,34 @@ function renderComplete(root, detail = false) {
   bindRecordInteractions(root, detail);
 }
 
+function compareTitle() { return session?.title || `${session?.image?.name || image?.name || 'Image A'} / ${session?.imageB?.name || imageB?.name || 'Image B'}`; }
+
+function renderCompareComplete(root, detail = false) {
+  const title = firstNamed('header-title', root) || firstNamed('title-body', root);
+  setText(title?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]') || title, compareTitle());
+  setText(firstNamed('photography-input', root), 'Compare');
+  setText(comparePromptSelector(root), session.prompt.name || 'Compare prompt');
+  setText(firstNamed('model-name', root), modelLabel(session.model));
+  renderCompareImages(root);
+  suppressCompareRecommendations(root);
+  renderOutput(root);
+  if (detail) {
+    const titleBody = firstNamed('title-body', root);
+    setText(titleBody?.querySelector('[data-name="Body/12px"]'), `${session.prompt.name || 'Compare prompt'} · ${formatDate(session.createdAt)}`);
+    setText(firstNamed('date-created', root), formatDate(session.createdAt));
+    setText(firstNamed('UI / Category Badge', metaBox(root, 'SOURCE TYPE')), 'COMPARE');
+    setText(firstNamed('Body/13px', metaBox(root, 'PROMPT USED')), session.prompt.instruction || session.prompt.body || '');
+    const reviewBy = firstNamed('Body/13px', metaBox(root, 'REVIEW BY'));
+    setText(reviewBy, session.model);
+    reviewBy?.setAttribute('title', session.model);
+    reviewBy?.setAttribute('aria-label', `Review by ${session.model}`);
+    setText(firstNamed('prompt-selector', metaBox(root, 'PROJECT')), 'Not linked');
+  }
+  renderTranscript(root);
+  setComposer(root);
+  bindRecordInteractions(root, detail);
+}
+
 function sync() {
   const busy = !!pending;
   if (modelSelect) modelSelect.disabled = busy || !!session;
@@ -382,7 +489,8 @@ function sync() {
   const sourceBox = firstNamed('Feedback / File', root);
   if (sourceBox) sourceBox.setAttribute('aria-disabled', String(busy || !!session));
   const action = firstNamed('action-bar', root);
-  if (action) action.setAttribute('aria-disabled', String(busy || !image || !promptSelect?.value || !modelSelect?.value));
+  const ready = mode === 'compare' ? Boolean(image && imageB) : Boolean(image);
+  if (action) action.setAttribute('aria-disabled', String(busy || !ready || !promptSelect?.value || !modelSelect?.value));
 }
 
 function makeClickable(node, handler, label) {
@@ -400,12 +508,19 @@ function bindDrop(node) {
   node.addEventListener('dragover', event => event.preventDefault());
   node.addEventListener('drop', event => {
     event.preventDefault();
-    if (event.dataTransfer.files.length !== 1) return setError('Drop one image at a time.');
-    selectImage(event.dataTransfer.files[0]);
+    const files = [...(event.dataTransfer?.files || [])];
+    if (mode === 'compare') {
+      if (files.length !== 2) return setError('Choose exactly two JPEG, PNG or WebP images for Image A and Image B.');
+      selectImage(files[0], 'A').then(() => selectImage(files[1], 'B'));
+      return;
+    }
+    if (files.length !== 1) return setError('Drop one image at a time.');
+    selectImage(files[0]);
   });
 }
 
 function bindNewInteractions(root) {
+  if (mode === 'compare') return bindCompareNewInteractions(root);
   if (root.dataset.feedbackBindings === 'true') { sync(); return; }
   root.dataset.feedbackBindings = 'true';
   const fileBox = firstNamed('Feedback / File', root);
@@ -424,6 +539,41 @@ function bindNewInteractions(root) {
   makeClickable(firstNamed('action-bar', root), () => startFeedback(), 'Get feedback');
   $$('a[href]', root).forEach(link => {
     if (link.getAttribute('aria-label') === 'feedback-new') link.addEventListener('click', event => { event.preventDefault(); startNew(); });
+    if (link.getAttribute('aria-label') === 'compare-new') link.addEventListener('click', event => { event.preventDefault(); startNew('compare'); });
+  });
+  sync();
+}
+
+function compareButton(root, label) {
+  return named('UI / Button', root).find(node => normalized(nodeText(node)) === normalized(label));
+}
+
+function bindCompareNewInteractions(root) {
+  if (root.dataset.compareBindings === 'true') { sync(); return; }
+  root.dataset.compareBindings = 'true';
+  const fileBox = firstNamed('Feedback / File', root);
+  const selectors = [comparePromptSelector(root)].filter(Boolean);
+  const sourceType = firstNamed('source-type', root);
+  makeClickable(fileBox, () => (image ? $('#image-file-b') : imageInput).click(), 'Choose Image A and Image B');
+  bindDrop(fileBox);
+  makeClickable(sourceType, () => {}, 'Compare source type');
+  makeClickable(selectors[0], () => promptSelect.showPicker?.() || promptSelect.click(), 'Choose a Compare prompt');
+  makeClickable(compareButton(root, 'CLEAR PROMPT'), () => {
+    promptSelect.value = '';
+    renderPrompt('');
+    sync();
+  }, 'Clear Compare prompt');
+  makeClickable(compareButton(root, 'COMPARE SOURCES'), () => startCompare(), 'Compare Image A and Image B');
+  const clearSources = firstNamed('project-toolbar', root)?.querySelector('a');
+  makeClickable(clearSources, () => {
+    image = null; imageB = null; visibleError = '';
+    renderCompareNew(root); sync();
+  }, 'Clear comparison sources');
+  $$('a[href]', root).forEach(link => {
+    const label = link.getAttribute('aria-label');
+    if (link === clearSources) return;
+    if (label === 'feedback-new') link.addEventListener('click', event => { event.preventDefault(); startNew('feedback'); });
+    if (label === 'compare-new') link.addEventListener('click', event => { event.preventDefault(); startNew('compare'); });
   });
   sync();
 }
@@ -440,19 +590,21 @@ function bindRecordInteractions(root, detail) {
     target.spellcheck = false;
   }
   makeClickable(send, () => sendChat(), 'Ask Director');
-  const newFeedback = named('UI / Button', root).find(node => normalized(nodeText(node)) === 'NEW FEEDBACK');
-  makeClickable(newFeedback, () => startNew(), 'New feedback');
-  makeClickable(firstNamed('pencil', root), () => renameSession(), 'Rename feedback');
-  makeClickable(firstNamed('bin', root), () => deleteSession(), 'Delete feedback');
+  const newRecord = named('UI / Button', root).find(node => normalized(nodeText(node)) === normalized(mode === 'compare' ? 'NEW COMPARISON' : 'NEW FEEDBACK'));
+  makeClickable(newRecord, () => startNew(mode), mode === 'compare' ? 'New comparison' : 'New feedback');
+  makeClickable(firstNamed('pencil', root), () => renameSession(), mode === 'compare' ? 'Rename comparison' : 'Rename feedback');
+  makeClickable(firstNamed('bin', root), () => deleteSession(), mode === 'compare' ? 'Delete comparison' : 'Delete feedback');
   $$('a[href]', root).forEach(link => {
-    if (link.getAttribute('aria-label') === 'feedback-new') link.addEventListener('click', event => { event.preventDefault(); startNew(); });
+    const label = link.getAttribute('aria-label');
+    if (label === 'feedback-new') link.addEventListener('click', event => { event.preventDefault(); startNew('feedback'); });
+    if (label === 'compare-new') link.addEventListener('click', event => { event.preventDefault(); startNew('compare'); });
   });
   const back = root.querySelector('[aria-label="darkroom"]');
   if (back) back.setAttribute('aria-disabled', 'true');
   sync();
 }
 
-async function selectImage(file) {
+async function selectImage(file, slot = 'A') {
   if (!file || pending || session) return;
   setError();
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) {
@@ -467,22 +619,41 @@ async function selectImage(file) {
       reader.onerror = () => reject(new Error('The image could not be read.'));
       reader.readAsDataURL(file);
     });
-    const picture = new Image(); picture.src = sourceDataUrl; await picture.decode();
+    const picture = new Image();
+    let previewReady = false;
+    await Promise.race([new Promise((resolve, reject) => {
+      picture.onload = resolve;
+      picture.onerror = () => reject(new Error('The image could not be decoded.'));
+      picture.src = sourceDataUrl;
+      }), new Promise(resolve => setTimeout(resolve, 2000))]);
     if (version !== imageVersion) return;
-    if (picture.naturalWidth * picture.naturalHeight > 100000000) throw new Error('This image is too large to preview safely.');
-    const scale = Math.min(1, 1600 / Math.max(picture.naturalWidth, picture.naturalHeight));
-    const canvas = document.createElement('canvas'); canvas.width = Math.round(picture.naturalWidth * scale); canvas.height = Math.round(picture.naturalHeight * scale);
-    const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(picture, 0, 0, canvas.width, canvas.height);
-    image = { name: file.name, sourceDataUrl, dataUrl: canvas.toDataURL('image/jpeg', 0.92), width: picture.naturalWidth, height: picture.naturalHeight, reviewWidth: canvas.width, reviewHeight: canvas.height };
-    renderNew($('.source-frame', app));
+    previewReady = picture.naturalWidth > 0 && picture.naturalHeight > 0;
+    if (previewReady && picture.naturalWidth * picture.naturalHeight > 100000000) throw new Error('This image is too large to preview safely.');
+    let dataUrl = sourceDataUrl, reviewWidth = picture.naturalWidth || 1, reviewHeight = picture.naturalHeight || 1;
+    if (previewReady) {
+      const scale = Math.min(1, 1600 / Math.max(picture.naturalWidth, picture.naturalHeight));
+      const canvas = document.createElement('canvas'); canvas.width = Math.round(picture.naturalWidth * scale); canvas.height = Math.round(picture.naturalHeight * scale);
+      const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+      dataUrl = canvas.toDataURL('image/jpeg', 0.92); reviewWidth = canvas.width; reviewHeight = canvas.height;
+    }
+    const selected = { name: file.name, sourceDataUrl, dataUrl, width: picture.naturalWidth || 1, height: picture.naturalHeight || 1, reviewWidth, reviewHeight };
+    if (mode === 'compare' && slot === 'B') imageB = selected;
+    else image = selected;
+    const root = $('.source-frame', app);
+    if (root) mode === 'compare' ? renderCompareNew(root) : renderNew(root);
   } catch (error) { setError(`Could not open image. ${error.message}`); }
-  finally { imageInput.value = ''; sync(); }
+  finally {
+    if (slot === 'B') $('#image-file-b').value = '';
+    else imageInput.value = '';
+    sync();
+  }
 }
 
-function startNew() {
-  pending?.abort(); pending = null; session = null; chatRequest = null; visibleError = ''; chatError = ''; phase = 'new';
+function startNew(nextMode = mode) {
+  pending?.abort(); pending = null; session = null; chatRequest = null; visibleError = ''; chatError = ''; phase = 'new'; mode = nextMode;
+  populatePrompts();
   history.replaceState(null, '', '/');
-  mountState('new');
+  mountState(mode === 'compare' ? 'compareNew' : 'new');
 }
 
 async function startFeedback() {
@@ -500,6 +671,27 @@ async function startFeedback() {
   } catch (error) {
     if (error.name === 'AbortError') setStatus('Request cancelled.'); else setError(error.message, error.raw);
     phase = 'new'; session = null; await mountState('new');
+  } finally { setStatus(); pending = null; sync(); }
+}
+
+async function startCompare() {
+  if (pending || session || !image || !imageB || !promptSelect.value || !modelSelect.value) {
+    if (!image || !imageB) setError('Choose exactly two valid images before comparing.');
+    return;
+  }
+  const prompt = selectedPrompt(); if (!prompt || prompt.sessionType !== 'compare') return;
+  session = { image, imageB, prompt, model: modelSelect.value }; phase = 'thinking'; pending = new AbortController(); setError();
+  setStatus('Comparing the two images with the local model. This may take a minute…');
+  history.replaceState(null, '', '/?view=compare-thinking');
+  await mountState('compareThinking'); sync();
+  try {
+    const data = await api('/api/compare', { image, imageB, promptId: prompt.id, model: modelSelect.value }, pending.signal);
+    session = data.session; phase = 'complete';
+    history.replaceState(null, '', `/?session=${encodeURIComponent(session.id)}&view=compare-complete`);
+    await mountState('compareComplete');
+  } catch (error) {
+    if (error.name === 'AbortError') setStatus('Request cancelled.'); else setError(error.message, error.raw);
+    phase = 'new'; session = null; await mountState('compareNew');
   } finally { setStatus(); pending = null; sync(); }
 }
 
@@ -523,7 +715,7 @@ async function renameSession() {
   if (!session?.id || pending) return;
   const title = window.prompt('Session title (up to 200 characters):', session.title || session.image.name); if (title === null) return;
   pending = new AbortController();
-  try { const data = await api(`/api/sessions/${session.id}`, { title, revision: session.revision }, pending.signal, 'PATCH'); session = data.session; renderComplete($('.source-frame', app), phase === 'detail'); }
+  try { const data = await api(`/api/sessions/${session.id}`, { title, revision: session.revision }, pending.signal, 'PATCH'); session = data.session; renderComplete($('.source-frame', app), phase === 'detail' || phase === 'compareDetail'); }
   catch (error) { setError(error.message, error.raw); }
   finally { pending = null; sync(); }
 }
@@ -544,6 +736,10 @@ async function mountState(nextPhase) {
   if (nextPhase === 'thinking') renderThinking(root);
   if (nextPhase === 'complete') renderComplete(root, false);
   if (nextPhase === 'detail') renderComplete(root, true);
+  if (nextPhase === 'compareNew') renderCompareNew(root);
+  if (nextPhase === 'compareThinking') renderCompareThinking(root);
+  if (nextPhase === 'compareComplete') renderCompareComplete(root, false);
+  if (nextPhase === 'compareDetail') renderCompareComplete(root, true);
   setModelBars(root); sync();
 }
 
@@ -551,7 +747,9 @@ async function loadSessionFromQuery() {
   const id = new URLSearchParams(location.search).get('session');
   if (!id) return mountState('new');
   const data = await api(`/api/sessions/${encodeURIComponent(id)}`);
-  session = data.session; image = session.image; phase = 'detail'; await mountState('detail');
+  session = data.session; mode = session.type === 'compare' ? 'compare' : 'feedback'; image = session.image; imageB = session.imageB || null; phase = 'detail';
+  populatePrompts(session.prompt?.id);
+  await mountState(mode === 'compare' ? 'compareDetail' : 'detail');
 }
 
 async function refreshModels() {
