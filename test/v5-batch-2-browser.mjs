@@ -120,7 +120,7 @@ async function choosePair() {
   await page.setInputFiles('#image-file', imageAPath);
   await page.waitForFunction(name => document.querySelector('[data-name="Feedback / File"]')?.dataset.imageA === name, imageAName);
   await page.setInputFiles('#image-file-b', imageBPath);
-  await page.waitForFunction(name => document.querySelector('[data-name="Feedback / File"]')?.textContent.includes(name), imageBName);
+  await page.waitForFunction(name => document.querySelector('[data-name="Feedback / File"]')?.dataset.imageB === name, imageBName);
 }
 
 async function openCompareNew() {
@@ -173,10 +173,31 @@ try {
   await page.locator('[data-name="UI / Button"]').filter({ hasText: 'COMPARE SOURCES' }).click();
   await page.waitForFunction(() => document.body.dataset.screen === 'compare-thinking');
   assert.equal(await page.locator('[data-name="image.jpg"]:visible').count(), 2);
-  await screenshot('production-compare-thinking.png');
+  const assertTwoImageRow = async () => {
+    const geometry = await page.locator('[data-name="Feedback / File"]').evaluate(fileBox => {
+      const slots = [...fileBox.querySelectorAll(':scope > [data-name="image.jpg"]')].filter(node => !node.hidden);
+      const rects = slots.map(node => { const rect = node.getBoundingClientRect(); return { left: rect.left, width: rect.width, height: rect.height }; });
+      const parent = fileBox.getBoundingClientRect();
+      return { parent: { left: parent.left, width: parent.width, height: parent.height }, rects };
+    });
+    assert.equal(geometry.rects.length, 2, 'Compare must expose exactly two visible image regions');
+    assert.ok(geometry.rects[0].width > geometry.parent.width * 0.4, 'Image A must expand across half the row');
+    assert.ok(geometry.rects[1].width > geometry.parent.width * 0.4, 'Image B must expand across half the row');
+    assert.ok(geometry.rects[1].left > geometry.rects[0].left + geometry.rects[0].width, 'Image A/B must remain ordered with donor spacing');
+    assert.equal(geometry.rects[0].height, geometry.rects[1].height, 'Image row heights must remain equal');
+    assert.equal(await page.locator('[data-name="Feedback / File"] > [data-name="image.jpg"]').count(), 4, 'Donor four-slot structure remains mounted for the adapter');
+    assert.equal(await page.locator('[data-name="Feedback / File"] > [data-name="image.jpg"]:visible').count(), 2, 'C/D donor slots must be hidden');
+  };
+  await assertTwoImageRow();
+  await assert.match(await page.locator('body').innerText(), /Compare two photographs or designs\./);
+  assert.doesNotMatch(await page.locator('body').innerText(), /2[–-]6 photographs/);
+  assert.doesNotMatch(await page.locator('body').innerText(), /Diego De Nicola Collection/);
+  await screenshot('production-compare-thinking-final.png');
   await page.waitForSelector('[data-name="output text"][role="alert"]');
   assert.match(await page.locator('[data-name="output text"][role="alert"]').textContent(), /Simulated Compare failure/);
-  await screenshot('production-compare-failure.png');
+  assert.equal(await page.locator('.director-compare-preview-slot:visible').count(), 2, 'failed Compare must preserve clean A/B previews');
+  assert.doesNotMatch(await page.locator('[data-name="Feedback / File"]').textContent(), /image\.jpg\.jpg|Value=image-6\.jpg/);
+  await screenshot('production-compare-failure-final.png');
 
   await choosePair();
   await page.selectOption('#prompt', 'compare-general');
@@ -188,8 +209,20 @@ try {
   assert.equal(await page.locator('[data-name="image.jpg"]:visible').count(), 2);
   assert.equal(await page.locator('[data-name="Recommendations"]').isHidden(), true, 'recommendation fixtures must be hidden at runtime');
   assert.doesNotMatch(await page.locator('body').innerText(), /Director Recommendations|#1 · Option 1|#2 · Option 2/);
-  assert.equal(await page.locator('[data-name="output text"]').textContent().then(text => text.includes('First impression') && text.includes('Structure') && text.includes('Which reads more strongly')), true);
-  await screenshot('production-compare-complete.png');
+  assert.match(await page.locator('[data-name="project-link"]').textContent(), /Select project/);
+  assert.doesNotMatch(await page.locator('body').innerText(), /Diego De Nicola Collection/);
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /First impression/);
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /Structure/);
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /Which reads more strongly/);
+  await assertTwoImageRow();
+  const completeSpacing = await page.locator('[data-name="prompt-section"]').evaluate(promptSection => {
+    const output = document.querySelector('[data-name="reply"]');
+    const prompt = promptSection.getBoundingClientRect();
+    const reply = output.getBoundingClientRect();
+    return { gap: prompt.top - reply.bottom };
+  });
+  assert.ok(completeSpacing.gap >= 0 && completeSpacing.gap < 80, 'suppressed recommendation space must be collapsed before Ask Director');
+  await screenshot('production-compare-complete-final.png');
 
   await page.goto(`${base}/?session=compare-mock&view=compare-detail`);
   await page.waitForFunction(() => document.body.dataset.screen === 'compare-detail');
@@ -198,9 +231,25 @@ try {
   assert.match(await page.locator('[data-name="UI / Category Badge"]').textContent(), /COMPARE/);
   assert.match(await page.locator('[data-name="Body/13px"]').allTextContents().then(values => values.join(' ')), /Compare/);
   assert.equal(await page.locator('[data-name="image.jpg"]:visible').count(), 2);
-  assert.equal(await page.locator('[data-name="Recommendations"]').isHidden(), true);
+  assert.equal(await page.locator('[data-name="Recommendations"]').isHidden(), false);
+  assert.equal(await page.locator('[data-name="Compare / Recommendation"]:visible').count(), 0);
   assert.doesNotMatch(await page.locator('body').innerText(), /Director Recommendations|#1 · Option 1|#2 · Option 2/);
-  await screenshot('production-compare-detail.png');
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /First impression/);
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /Structure/);
+  assert.match(await page.locator('[data-name="output text"]').textContent(), /Which reads more strongly/);
+  assert.equal(await page.locator('[data-name="prompt-selector"]').filter({ hasText: 'Not linked' }).count(), 1);
+  assert.doesNotMatch(await page.locator('body').innerText(), /Diego De Nicola Collection/);
+  const detailOutput = await page.locator('[data-name="reply"]').evaluate(reply => {
+    const output = reply.querySelector('[data-name="output text"]');
+    const replyRect = reply.getBoundingClientRect();
+    const outputRect = output.getBoundingClientRect();
+    const prompt = document.querySelector('[data-name="prompt-section"]').getBoundingClientRect();
+    return { reply: { top: replyRect.top, bottom: replyRect.bottom, width: replyRect.width }, output: { top: outputRect.top, width: outputRect.width }, promptTop: prompt.top };
+  });
+  assert.ok(detailOutput.output.width > 0 && detailOutput.reply.width > 0, 'saved comparison output must have rendered geometry');
+  const detailMetadata = await page.locator('[data-name="metadata-primary"]').boundingBox();
+  assert.ok(detailMetadata.y - detailOutput.reply.bottom >= 0 && detailMetadata.y - detailOutput.reply.bottom < 80, 'Detail recommendation fixture space must be collapsed before metadata');
+  await screenshot('production-compare-detail-final.png');
 
   const composer = page.locator('[data-name="prompt-text"] .text-content span').last();
   await composer.fill('Keep Image A and Image B distinct.');
@@ -212,7 +261,7 @@ try {
   await page.waitForSelector('[data-name="chat-transcript"] .director-chat-turn');
   assert.equal(chatRequests.at(-1).sessionId, 'compare-mock');
   assert.equal(await page.locator('[data-name="chat-transcript"] .director-chat-turn').count(), 2);
-  await screenshot('production-compare-detail-after-chat.png');
+  await screenshot('production-compare-detail-after-chat-final.png');
   assert.deepEqual(pageErrors, []);
   assert.equal(saved.image.name, imageAName);
   assert.equal(saved.imageB.name, imageBName);

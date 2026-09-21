@@ -39,6 +39,147 @@
   word-break: break-word;
 }
 
+/* Compare has exactly two sources. Keep the donor row height and treatment,
+   while letting the two production images use the available row width. */
+#director-app .source-frame.director-compare-two-image-row [data-name="Feedback / File"] > [data-name="image.jpg"] {
+  left: 0;
+  width: calc(50% - 6px);
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+}
+
+#director-app .source-frame.director-compare-two-image-row [data-name="Feedback / File"] > [data-name="image.jpg"]:nth-of-type(2) {
+  left: calc(50% + 6px);
+}
+
+/* The new Compare donor has one upload well rather than the saved pair row.
+   Reuse that well for a clean A/B retry preview after a failed request. */
+#director-app .source-frame [data-name="Feedback / File"].director-compare-preview-active > [data-name="label"],
+#director-app .source-frame [data-name="Feedback / File"].director-compare-preview-active [data-name="Label/26px"] {
+  visibility: hidden;
+}
+
+#director-app .source-frame .director-compare-preview {
+  position: absolute;
+  inset: 32px;
+  display: flex;
+  gap: 12px;
+}
+
+#director-app .source-frame .director-compare-preview-slot {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-ui-bg-sunken, rgba(25, 25, 25, 1));
+}
+
+#director-app .source-frame .director-compare-preview-slot::after {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  padding: 4px 6px;
+  color: var(--color-ui-text-primary, rgba(242, 240, 237, 1));
+  background: rgba(23, 23, 23, 0.78);
+  content: attr(data-image-role);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+#director-app .source-frame .director-compare-preview-slot .source-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Recommendations are authored donor fixtures. The saved comparison remains
+   in the approved reply region; only unsupported ranked cards and their
+   runtime-only footprint are removed. */
+#director-app .source-frame.director-compare-complete [data-name="Recommendations"] {
+  display: none;
+}
+
+#director-app .source-frame.director-compare-complete [data-name="feedback"] {
+  height: 728px;
+}
+
+#director-app .source-frame.director-compare-complete [data-name="feedback-panel"] {
+  height: 963px;
+}
+
+#director-app .source-frame.director-compare-complete [data-name="main"] {
+  height: 1627px;
+}
+
+#director-app .source-frame.director-compare-complete [data-name="prompt-section"] {
+  top: 1255px;
+}
+
+#director-app .source-frame.director-compare-complete [data-name="save-button"] {
+  top: 1507px;
+}
+
+#director-app .source-frame.director-compare-complete {
+  height: 1627px !important;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="Recommendations"] {
+  height: 483px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="Recommendations"] > [data-name="UI / Section Title"] {
+  display: none;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="Recommendations"] > [data-name="reply"] {
+  top: 0;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="metadata-primary"] {
+  top: 514px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="feedback-meta"] > [data-name="meta-box"] {
+  top: 615px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="metadata-secondary"] {
+  top: 1008px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="feedback-meta"] {
+  height: 1128px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="feedback"] {
+  height: 1160px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="feedback-panel"] {
+  height: 1606px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="main"] {
+  height: 2163px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="prompt-section"] {
+  top: 1791px;
+}
+
+#director-app .source-frame.director-compare-detail [data-name="save-button"] {
+  top: 2043px;
+}
+
+#director-app .source-frame.director-compare-detail {
+  height: 2163px !important;
+}
+
 #director-app .source-frame [data-name="prompt-textarea"] [data-name="form-text"],
 #director-app .source-frame [data-name="meta-box"] [data-name="Body/13px"],
 #director-app .source-frame [data-name="meta-box"] [data-name="prompt-selector"] {

@@ -291,6 +291,7 @@ function compareImageSlots(root) {
 function renderCompareImages(root) {
   const slots = compareImageSlots(root);
   const selected = [session?.image || image, session?.imageB || imageB];
+  root.classList.add('director-compare-two-image-row');
   slots.forEach((slot, index) => {
     const value = selected[index];
     slot.hidden = !value || index > 1;
@@ -304,10 +305,49 @@ function renderCompareImages(root) {
   });
 }
 
-function suppressCompareRecommendations(root) {
+function renderComparePreview(root) {
+  const fileBox = firstNamed('Feedback / File', root);
+  if (!fileBox) return;
+  let preview = firstNamed('compare-preview', fileBox);
+  if (!preview) {
+    preview = document.createElement('div');
+    preview.dataset.name = 'compare-preview';
+    preview.className = 'director-compare-preview';
+    preview.innerHTML = `
+      <div class="director-compare-preview-slot" data-image-role="Image A"><img class="source-image" alt="Image A"></div>
+      <div class="director-compare-preview-slot" data-image-role="Image B"><img class="source-image" alt="Image B"></div>
+    `;
+    fileBox.append(preview);
+  }
+  const selected = [image, imageB];
+  preview.hidden = !selected[0] && !selected[1];
+  fileBox.classList.toggle('director-compare-preview-active', Boolean(selected[0] || selected[1]));
+  $$('.director-compare-preview-slot', preview).forEach((slot, index) => {
+    const value = selected[index];
+    slot.hidden = !value;
+    if (value) setImageSource(slot, value);
+    const imageNode = $('img.source-image', slot);
+    if (imageNode) imageNode.alt = `${index === 0 ? 'Image A' : 'Image B'}: ${value?.name || ''}`;
+  });
+}
+
+function setCompareProjectState(root, detail = false) {
+  const project = detail ? metaBox(root, 'PROJECT') : firstNamed('project-link', root);
+  setText(firstNamed(detail ? 'prompt-selector' : 'photography-input', project), detail ? 'Not linked' : 'Select project');
+}
+
+function setCompareInstruction(root) {
+  setText(firstNamed('title-body', root)?.querySelector('[data-name="Body/12px"]'), 'Compare two photographs or designs.');
+}
+
+function collapseCompareRecommendations(root, detail = false) {
+  root.classList.toggle('director-compare-complete', !detail);
+  root.classList.toggle('director-compare-detail', detail);
   named('Recommendations', root).forEach(node => {
-    node.hidden = true;
-    node.setAttribute('aria-hidden', 'true');
+    node.classList.add('director-compare-recommendations');
+    node.setAttribute('aria-label', 'Recommendations unavailable until ranked data exists');
+    named('UI / Section Title', node).forEach(title => { title.hidden = true; title.setAttribute('aria-hidden', 'true'); });
+    named('Compare / Recommendation', node).forEach(recommendation => { recommendation.hidden = true; recommendation.setAttribute('aria-hidden', 'true'); });
   });
 }
 
@@ -340,7 +380,10 @@ function renderCompareNew(root) {
   fileBox.dataset.imageA = image?.name || '';
   fileBox.dataset.imageB = imageB?.name || '';
   setText(firstNamed('label', fileBox), image && imageB ? 'Image A + Image B' : 'Select images');
-  setText(firstNamed('Label/26px', fileBox), image && imageB ? `${image.name} · ${imageB.name}` : 'Drop A + B here');
+  setText(firstNamed('Label/26px', fileBox), image && imageB ? 'Two images selected' : 'Drop A + B here');
+  setCompareInstruction(root);
+  setCompareProjectState(root);
+  renderComparePreview(root);
   renderDefaultFeedbackOutput(root);
   if (visibleError) renderFeedbackError(root, visibleError);
   bindCompareNewInteractions(root);
@@ -358,10 +401,11 @@ function renderThinking(root) {
 
 function renderCompareThinking(root) {
   setText(firstNamed('header-body', root)?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]'), 'Compare');
+  setCompareInstruction(root);
   setText(firstNamed('photography-input', root), 'Compare');
   setText(comparePromptSelector(root), session?.prompt?.name || selectedPrompt()?.name || 'Select prompt');
+  setCompareProjectState(root);
   renderCompareImages(root);
-  suppressCompareRecommendations(root);
   setText(firstNamed('heading', outputRegion(root)), 'COMPARING SOURCES');
   setText(firstNamed('output text', outputRegion(root)), '......');
 }
@@ -455,11 +499,13 @@ function compareTitle() { return session?.title || `${session?.image?.name || im
 function renderCompareComplete(root, detail = false) {
   const title = firstNamed('header-title', root) || firstNamed('title-body', root);
   setText(title?.querySelector('[data-name="Heading/H2 /Semi-Bold/32px/37"]') || title, compareTitle());
+  setCompareInstruction(root);
   setText(firstNamed('photography-input', root), 'Compare');
   setText(comparePromptSelector(root), session.prompt.name || 'Compare prompt');
   setText(firstNamed('model-name', root), modelLabel(session.model));
   renderCompareImages(root);
-  suppressCompareRecommendations(root);
+  setCompareProjectState(root, detail);
+  collapseCompareRecommendations(root, detail);
   renderOutput(root);
   if (detail) {
     const titleBody = firstNamed('title-body', root);
@@ -471,7 +517,6 @@ function renderCompareComplete(root, detail = false) {
     setText(reviewBy, session.model);
     reviewBy?.setAttribute('title', session.model);
     reviewBy?.setAttribute('aria-label', `Review by ${session.model}`);
-    setText(firstNamed('prompt-selector', metaBox(root, 'PROJECT')), 'Not linked');
   }
   renderTranscript(root);
   setComposer(root);
