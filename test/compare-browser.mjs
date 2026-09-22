@@ -34,6 +34,7 @@ const preserved = oldStore.create({
   model: testModel, modelInfo: { provider: 'LM Studio', contextLength: 8192 },
   feedback: oldReport.feedback, chat: oldReport.priorChat
 });
+const preservedOriginal = structuredClone(preserved);
 oldStore.close();
 
 let server; let browser; let page; let logs = ''; let compare; let beforeRestart; let sourceB;
@@ -95,8 +96,8 @@ try {
   let occupied = false; try { await fetch(`${base}/api/health`); occupied = true; } catch {}
   assert.equal(occupied, false, 'Choose an unused DIRECTOR_V3_TEST_PORT.');
   await start(); await openBrowser();
-  const preservedBefore = await get(preserved.id); assert.equal(preservedBefore.type, 'feedback');
-  result.steps.push('V2 Feedback remains readable through the V5 runtime before Compare begins');
+  const preservedAfterMigration = await get(preserved.id); assert.deepEqual(preservedAfterMigration, preservedOriginal, 'V2 Feedback must remain exactly unchanged through V5 migration');
+  result.steps.push('The original V2 Feedback session remains deeply equal after V5 startup/migration');
 
   await chooseCompare(); assert.equal(await page.locator('#prompt option').count(), 2);
   await page.setInputFiles('#image-file', { name: 'image-a.jpg', mimeType: 'image/jpeg', buffer: bytesA });
@@ -121,6 +122,7 @@ try {
   assert.match(compare.feedback.sections[2].content, /circle/i, 'initial Image B review must identify the circle');
   assert.match(compare.feedback.sections[2].content, /square|rectangle/i, 'initial Image B review must identify the square or rectangle');
   assert.match(compare.feedback.sections[2].content, /blue|red/i, 'initial Image B review must contain its relevant colour evidence');
+  assert.deepEqual(await get(preserved.id), preservedOriginal, 'unrelated V2 Feedback must remain exactly unchanged after Compare creation');
   result.steps.push('V5 Compare submits exactly two labelled sources and the real structured response distinguishes the A/B pair');
 
   await chat('For Image A only, name the main coloured object and describe what sits to its right. We will call this comparison "Pair study". Keep the reply short.'); assert.match(result.replies[0], /yellow/i); assert.match(result.replies[0], /chair/i);
@@ -128,13 +130,26 @@ try {
   result.steps.push('Two follow-ups retain deterministic A/B identity and critique-policy-safe language');
 
   await restart(); const reopened = await openSaved(compare.id); assert.deepEqual(reopened, beforeRestart); assert.equal(await page.locator('[data-name="image.jpg"]:visible').count(), 2); assert.deepEqual(await page.locator('[data-name="image.jpg"]:visible').evaluateAll(nodes => nodes.map(node => node.dataset.imageRole)), ['Image A', 'Image B']);
+  const reopenedImageA = page.locator('[data-name="image.jpg"][data-image-role="Image A"]:visible img.source-image');
+  const reopenedImageB = page.locator('[data-name="image.jpg"][data-image-role="Image B"]:visible img.source-image');
+  assert.equal(await reopenedImageA.count(), 1, 'reopened visible Image A must be rendered by its donor image region');
+  assert.equal(await reopenedImageB.count(), 1, 'reopened visible Image B must be rendered by its donor image region');
+  assert.equal(await reopenedImageA.getAttribute('src'), sourceA, 'reopened visible Image A must use the exact original source');
+  assert.equal(await reopenedImageB.getAttribute('src'), sourceB, 'reopened visible Image B must use the exact original source');
+  assert.deepEqual(await get(preserved.id), preservedOriginal, 'unrelated V2 Feedback must remain exactly unchanged after Compare restart');
   const exactOutput = reopened.feedback.sections.map((section, index) => `${index + 1}. ${section.heading}\n${section.content}`).join('\n\n'); assert.equal(await page.locator('[data-name="output text"]').textContent(), exactOutput); assert.equal(await page.locator('[data-name="chat-transcript"] .director-chat-turn').count(), 4); result.steps.push('Full browser/server restart restores both images, exact comparison output and prior Compare chat');
+  const renamedTitle = 'Pair study — durable comparison';
+  const renameResponse = await fetch(`${base}/api/sessions/${compare.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: renamedTitle, revision: reopened.revision }) });
+  const renamedData = await renameResponse.json(); assert.equal(renameResponse.status, 200, renamedData.error || 'Compare rename failed'); assert.equal(renamedData.session.title, renamedTitle);
+  await restart(); const reopenedRenamed = await openSaved(compare.id); assert.equal(reopenedRenamed.title, renamedTitle); assert.deepEqual(reopenedRenamed.chat, beforeRestart.chat, 'Compare chat must remain present after durable rename restart');
+  result.steps.push('Compare rename survives a full restart with the existing chat intact');
   const continued = await chat('What did we call this comparison? Look again at Image B\'s right edge: describe the form there. How does its colour relate to the main coloured object in Image A? Keep it brief.'); assert.match(result.replies[2], /Pair study/i); assert.match(result.replies[2], /blue/i); assert.match(result.replies[2], /circle/i); assert.match(result.replies[2], /yellow/i); assert.doesNotMatch(result.replies[2], prohibited); result.steps.push('Later follow-up after restart retains A/B identity, prior chat context and the comparison name');
 
-  await page.screenshot({ path: join(evidence, 'reopened-compare.png'), fullPage: true }); const preservedAfter = await get(preserved.id); assert.deepEqual(preservedAfter, preservedBefore, 'unrelated Feedback session must remain unchanged');
+  await page.screenshot({ path: join(evidence, 'reopened-compare.png'), fullPage: true }); const preservedAfter = await get(preserved.id); assert.deepEqual(preservedAfter, preservedOriginal, 'unrelated Feedback session must remain exactly unchanged');
   const storeBeforeDelete = new SessionStore(join(directory, 'sessions.sqlite')); assert.equal(storeBeforeDelete.db.prepare('SELECT count(*) n FROM assets').get().n, 6); storeBeforeDelete.close();
   const deleteResponse = await fetch(`${base}/api/sessions/${compare.id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: continued.revision }) }); assert.equal(deleteResponse.status, 200); assert.equal((await fetch(`${base}/api/sessions/${compare.id}`)).status, 404);
-  await restart(); assert.equal((await fetch(`${base}/api/sessions/${compare.id}`)).status, 404); assert.deepEqual(await get(preserved.id), preservedBefore); await browser.close(); browser = null; await stop();
+  assert.deepEqual(await get(preserved.id), preservedOriginal, 'unrelated V2 Feedback must remain exactly unchanged after Compare deletion');
+  await restart(); assert.equal((await fetch(`${base}/api/sessions/${compare.id}`)).status, 404); assert.deepEqual(await get(preserved.id), preservedOriginal); await browser.close(); browser = null; await stop();
   const store = new SessionStore(join(directory, 'sessions.sqlite')); try { assert.equal(store.db.prepare('SELECT count(*) n FROM assets WHERE session_id=?').get(compare.id).n, 0); assert.equal(store.db.prepare('SELECT count(*) n FROM assets').get().n, 2); assert.equal(store.db.prepare('PRAGMA integrity_check').get().integrity_check, 'ok'); } finally { store.close(); }
   result.steps.push('API-supported deletion removes only Compare-owned assets and preserves V2 Feedback datastore integrity'); assert.deepEqual(pageErrors, []);
   Object.assign(result, { passed: true, model: compare.model, feedback: compare.feedback, chat: continued.chat, imageA: { fixture: 'assets/img/image.jpg.jpg', sha256: digest(bytesA) }, imageB: { fixture: 'verification/v3/image-b-test-fixture.png', sha256: digest(bytesB) }, unchangedV2SessionId: preserved.id, compareSessionId: compare.id, deletedCompareAssets: 4, survivingFeedbackAssets: 2, integrityCheck: 'ok', consoleErrors: pageErrors });
