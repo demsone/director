@@ -39,6 +39,20 @@
   word-break: break-word;
 }
 
+/* The approved Quick View keeps Prompt Used inside a fixed donor field. Real
+   saved prompts can be longer than the donor fixture, so contain the text in
+   that field without changing the drawer geometry or control placement. */
+#director-app .source-frame [data-name="Quick View / Drawer"] [data-name="prompt-reply"] [data-name="form-text"] {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+#director-app .source-frame [data-name="Quick View / Drawer"] [data-name="prompt-reply"] [data-name="output text"] {
+  overflow: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Compare has exactly two sources. Keep the donor row height and treatment,
    while letting the two production images use the available row width. */
 #director-app .source-frame.director-compare-two-image-row [data-name="Feedback / File"] > [data-name="image.jpg"] {

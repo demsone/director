@@ -8,7 +8,15 @@ const donorFiles = {
   compareNew: 'compare-new.html',
   compareThinking: 'compare-thinking.html',
   compareComplete: 'compare-complete.html',
-  compareDetail: 'compare-detail.html'
+  compareDetail: 'compare-detail.html',
+  libraryPhotography: 'darkroom.html',
+  quickPhotography: 'darkroom-quick.html',
+  libraryDesign: 'design-studio.html',
+  quickDesign: 'design-studio-quick.html',
+  detailPhotography: 'darkroom-detail.html',
+  detailDesign: 'design-studio-detail.html',
+  libraryCompare: 'compare-library.html',
+  compareLibraryDetail: 'compare-library-detail.html'
 };
 
 let prompts = [];
@@ -23,6 +31,10 @@ let imageVersion = 0;
 let chatRequest = null;
 let visibleError = '';
 let chatError = '';
+let libraryKind = null;
+let libraryReturnKind = null;
+let libraryRecords = [];
+let feedbackContext = 'Photography';
 let promptSelect;
 let modelSelect;
 let imageInput;
@@ -42,6 +54,18 @@ function leaf(node) {
 function setText(node, value) {
   const target = leaf(node);
   if (target) target.textContent = String(value ?? '');
+}
+
+function libraryState(kind) {
+  return kind === 'photography' ? 'libraryPhotography' : kind === 'design' ? 'libraryDesign' : 'libraryCompare';
+}
+
+function libraryScreen(kind) {
+  return kind === 'photography' ? 'darkroom-library' : kind === 'design' ? 'design-studio-library' : 'compare-library';
+}
+
+function libraryLabel(kind) {
+  return kind === 'photography' ? 'Darkroom' : kind === 'design' ? 'Design Studio' : 'Compare Library';
 }
 
 function normalized(value) { return String(value || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
@@ -189,14 +213,15 @@ function normalizeDonorResources(root) {
 }
 
 async function loadDonor(state) {
+  delete document.body.dataset.libraryDataLoaded;
   const response = await fetch(`${DONOR_BASE}${donorFiles[state]}`, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Could not load approved ${state} donor.`);
   const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
   const source = parsed.querySelector('.source-frame');
-  if (!source) throw new Error(`Approved ${state} feedback donor has no source frame.`);
+  if (!source) throw new Error(`Approved ${state} donor has no source frame.`);
   normalizeDonorResources(source);
   app.replaceChildren(document.importNode(source, true));
-  const screenNames = { new: 'feedback-new', thinking: 'feedback-thinking', complete: 'feedback-complete', detail: 'feedback-detail', compareNew: 'compare-new', compareThinking: 'compare-thinking', compareComplete: 'compare-complete', compareDetail: 'compare-detail' };
+  const screenNames = { new: 'feedback-new', thinking: 'feedback-thinking', complete: 'feedback-complete', detail: 'feedback-detail', compareNew: 'compare-new', compareThinking: 'compare-thinking', compareComplete: 'compare-complete', compareDetail: 'compare-detail', libraryPhotography: 'darkroom-library', quickPhotography: 'darkroom-quick', libraryDesign: 'design-studio-library', quickDesign: 'design-studio-quick', detailPhotography: 'darkroom-detail', detailDesign: 'design-studio-detail', libraryCompare: 'compare-library', compareLibraryDetail: 'compare-library-detail' };
   document.body.dataset.screen = screenNames[state] || state;
   return $('.source-frame', app);
 }
@@ -240,7 +265,9 @@ function populatePrompts(selected = promptSelect?.value) {
     group.append(...feedbackPrompts.filter(prompt => prompt.category === category).map(prompt => new Option(prompt.name, prompt.id)));
     promptSelect.append(group);
   }
+  const contextPrompt = mode === 'feedback' && feedbackContext ? feedbackPrompts.find(prompt => prompt.category === feedbackContext) : null;
   if (feedbackPrompts.some(prompt => prompt.id === selected)) promptSelect.value = selected;
+  else if (contextPrompt) promptSelect.value = contextPrompt.id;
   else if (feedbackPrompts[0]) promptSelect.value = feedbackPrompts[0].id;
   renderPrompt(promptSelect.value);
 }
@@ -439,6 +466,17 @@ function setCompareComposerModel(root) {
   selector.setAttribute('aria-label', model ? `Saved Compare model: ${model}` : 'No saved Compare session model');
 }
 
+function setFeedbackComposerModel(root) {
+  const selector = firstNamed('Prompt / Model Selector', root);
+  const model = session?.model || '';
+  if (!selector) return;
+  setText(selector, model || 'No saved model');
+  selector.dataset.selectedModel = model;
+  selector.setAttribute('aria-disabled', 'true');
+  selector.title = model || 'No saved Feedback session model';
+  selector.setAttribute('aria-label', model ? `Saved Feedback model: ${model}` : 'No saved Feedback session model');
+}
+
 function renderTranscript(root) {
   const section = firstNamed('prompt-section', root);
   const editor = firstNamed('Prompt / Editor', section);
@@ -497,10 +535,14 @@ function renderComplete(root, detail = false) {
     setText(firstNamed('date-created', root), formatDate(session.createdAt));
     setText(firstNamed('UI / Category Badge', metaBox(root, 'SOURCE TYPE')), (session.prompt.category || 'Photography').toUpperCase());
     setText(firstNamed('Body/13px', metaBox(root, 'PROMPT USED')), session.prompt.instruction || session.prompt.body || '');
-    setText(firstNamed('Body/13px', metaBox(root, 'REVIEW BY')), session.model);
+    const reviewBy = firstNamed('Body/13px', metaBox(root, 'REVIEW BY'));
+    setText(reviewBy, session.model);
+    reviewBy?.setAttribute('title', session.model);
+    reviewBy?.setAttribute('aria-label', `Review by ${session.model}`);
     setText(firstNamed('prompt-selector', metaBox(root, 'PROJECT')), 'Not linked');
   }
   renderTranscript(root);
+  setFeedbackComposerModel(root);
   setComposer(root);
   bindRecordInteractions(root, detail);
 }
@@ -533,6 +575,197 @@ function renderCompareComplete(root, detail = false) {
   setCompareComposerModel(root);
   setComposer(root);
   bindRecordInteractions(root, detail);
+}
+
+function setLibraryCardImage(card, record) {
+  const selected = record.image;
+  const source = selected?.sourceDataUrl || selected?.dataUrl;
+  const imageNode = $('img.source-image', card);
+  if (imageNode && source) {
+    imageNode.src = source;
+    imageNode.alt = record.title || selected?.name || '';
+  }
+}
+
+function clearLibraryCard(card) {
+  card.hidden = true;
+  card.setAttribute('aria-hidden', 'true');
+  card.removeAttribute('data-session-id');
+  const imageNode = $('img.source-image', card);
+  imageNode?.removeAttribute('src');
+  imageNode?.setAttribute('alt', '');
+  const title = firstNamed('Label/13px', card);
+  if (title) setText(title, '');
+  [...named('UI / Category Badge', card), ...named('Badges / Category', card)].forEach(badge => setText(badge, ''));
+  const date = firstNamed('date-created', card);
+  if (date) setText(date, '');
+}
+
+function configureLibraryCard(card, record, kind, index) {
+  card.hidden = false;
+  card.removeAttribute('aria-hidden');
+  card.dataset.sessionId = record.id;
+  card.dataset.sessionType = record.type;
+  if (kind !== 'compare') {
+    card.setAttribute('aria-label', record.type === 'compare' ? 'Open saved comparison' : `Open saved ${kind === 'design' ? 'Design Studio' : 'Darkroom'} feedback`);
+    card.setAttribute('href', '#');
+    setLibraryCardImage(card, record);
+    setText(firstNamed('Label/13px', card), record.title || record.image?.name || 'Untitled session');
+    const categoryBadges = named('UI / Category Badge', card);
+    const domainBadge = categoryBadges.length > 1 ? categoryBadges[0] : firstNamed('Badges / Category', card) || categoryBadges[0];
+    const typeBadge = categoryBadges.length > 1 ? categoryBadges[1] : categoryBadges[0];
+    setText(domainBadge, kind === 'design' ? 'DESIGN' : 'FOTO');
+    setText(typeBadge, record.type === 'compare' ? 'COMPARE' : 'FEEDBACK');
+    setText(firstNamed('date-created', card), formatDate(record.createdAt));
+    makeClickable(card, () => openLibraryRecord(record, kind), `Open ${record.title || 'saved session'}`);
+  } else {
+    card.dataset.sessionId = record.id;
+    const link = firstNamed('Label/13px', card);
+    if (link) {
+      link.setAttribute('href', '#');
+      link.setAttribute('aria-label', 'Open saved comparison');
+      setText(link, record.title || record.image?.name || 'Untitled comparison');
+      makeClickable(link, () => openLibraryRecord(record, kind), `Open ${record.title || 'saved comparison'}`);
+    }
+  }
+  if (index >= 35) {
+    const column = index % 6;
+    const row = Math.floor(index / 6);
+    card.style.left = `${column * 203.3}px`;
+    card.style.top = `${row * 300.696}px`;
+  }
+}
+
+function renderLibrary(root, kind) {
+  libraryKind = kind;
+  const addNew = firstNamed('Project / Toolbar', root)?.querySelector('[aria-label="feedback-new"]');
+  if (addNew) makeClickable(addNew, () => startNew('feedback', kind === 'design' ? 'Design' : 'Photography'));
+  const list = firstNamed('project-data', root);
+  const itemName = kind === 'compare' ? 'UI / List Item' : 'UI / File Thumb';
+  if (!list) return;
+  let items = named(itemName, list);
+  while (items.length < libraryRecords.length && items.length) {
+    const clone = items[0].cloneNode(true);
+    list.append(clone);
+    items = named(itemName, list);
+  }
+  items.forEach((item, index) => {
+    const record = libraryRecords[index];
+    if (!record) return clearLibraryCard(item);
+    configureLibraryCard(item, record, kind, index);
+  });
+  setModelBars(root);
+}
+
+function firstReadExcerpt(record) {
+  const first = record?.feedback?.sections?.[0];
+  if (!first) return 'No saved FIRST READ is available.';
+  return first.content || first.heading || 'No saved FIRST READ is available.';
+}
+
+function renderQuickView(root, record, kind) {
+  const source = root?.classList.contains('source-frame') ? root : root?.querySelector('.source-frame');
+  if (!source) return;
+  const overlayState = kind === 'design' ? 'quickDesign' : 'quickPhotography';
+  return fetch(`${DONOR_BASE}${donorFiles[overlayState]}`, { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) throw new Error(`Could not load approved ${libraryLabel(kind)} Quick View.`);
+      return response.text();
+    })
+    .then(html => {
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const quickSource = parsed.querySelector('.source-frame');
+      if (!quickSource?.firstElementChild) throw new Error('Approved Quick View donor has no source frame.');
+      normalizeDonorResources(quickSource);
+      const overlay = document.importNode(quickSource.firstElementChild, true);
+      source.append(overlay);
+      const preview = firstNamed('preview-image', overlay);
+      setImageSource(preview, record.image);
+      const header = firstNamed('side-drawer-header', overlay);
+      setText(header?.querySelector('.text-content'), record.title || record.image?.name || 'Untitled session');
+      const badges = named('UI / Category Badge', firstNamed('category-badges', overlay));
+      setText(badges[0], kind === 'design' ? 'DESIGN' : 'FOTO');
+      setText(badges[1], 'FEEDBACK');
+      const promptReply = firstNamed('prompt-reply', overlay);
+      setText(firstNamed('output text', promptReply), record.prompt?.instruction || record.prompt?.body || '');
+      const fields = named('Form / Field', overlay);
+      setText(firstNamed('output text', fields.at(-1)), firstReadExcerpt(record));
+      const close = firstNamed('button-close', overlay);
+      makeClickable(close, () => overlay.remove(), `Close ${libraryLabel(kind)} Quick View`);
+      const viewFull = firstNamed('VIEW FEEDBACK', overlay);
+      makeClickable(viewFull, () => openFeedbackDetail(record, kind), 'View full feedback');
+      return overlay;
+    });
+}
+
+function openFeedbackDetail(record, kind) {
+  session = record;
+  mode = 'feedback';
+  image = record.image;
+  imageB = null;
+  libraryReturnKind = kind;
+  phase = 'detail';
+  const detailState = kind === 'design' ? 'detailDesign' : 'detailPhotography';
+  history.pushState(null, '', `/?session=${encodeURIComponent(record.id)}&view=${detailState === 'detailDesign' ? 'design-studio-detail' : 'darkroom-detail'}&from=${encodeURIComponent(kind)}`);
+  return mountState(detailState);
+}
+
+function openCompareDetail(record, kind) {
+  session = record;
+  mode = 'compare';
+  image = record.image;
+  imageB = record.imageB || null;
+  libraryReturnKind = kind;
+  phase = 'compareDetail';
+  const detailState = kind === 'compare' ? 'compareLibraryDetail' : 'compareDetail';
+  history.pushState(null, '', `/?session=${encodeURIComponent(record.id)}&view=${detailState === 'compareLibraryDetail' ? 'compare-library-detail' : 'compare-detail'}&from=${encodeURIComponent(kind)}`);
+  return mountState(detailState);
+}
+
+function openLibraryRecord(record, kind) {
+  return record.type === 'compare' ? openCompareDetail(record, kind) : renderQuickViewForRecord(record, kind);
+}
+
+function renderQuickViewForRecord(record, kind) {
+  session = null;
+  mode = 'feedback';
+  libraryReturnKind = kind;
+  return renderQuickView($('.source-frame', app), record, kind).catch(error => setError(error.message));
+}
+
+async function fetchLibraryRecords(kind) {
+  let summaries;
+  if (kind === 'compare') {
+    summaries = ((await api('/api/sessions')).sessions || []).filter(item => item.type === 'compare' && !item.error);
+  } else {
+    summaries = ((await api(`/api/libraries/${encodeURIComponent(kind)}`)).sessions || []).filter(item => !item.error);
+  }
+  const unique = [...new Map(summaries.map(item => [item.id, item])).values()];
+  const records = await Promise.all(unique.map(item => api(`/api/sessions/${encodeURIComponent(item.id)}`).then(data => data.session)));
+  return records.filter(record => kind === 'compare' ? record.type === 'compare' : Boolean(record));
+}
+
+async function mountLibrary(kind) {
+  pending?.abort();
+  pending = null;
+  session = null;
+  chatRequest = null;
+  visibleError = '';
+  chatError = '';
+  mode = kind === 'compare' ? 'compare' : 'feedback';
+  libraryKind = kind;
+  libraryReturnKind = kind;
+  libraryRecords = [];
+  history.replaceState(null, '', `/?view=${libraryScreen(kind)}`);
+  const root = await mountState(libraryState(kind));
+  try {
+    libraryRecords = await fetchLibraryRecords(kind);
+    renderLibrary(root, kind);
+    document.body.dataset.libraryDataLoaded = 'true';
+  } catch (error) {
+    setError(`Could not load ${libraryLabel(kind)}. ${error.message}`);
+  }
+  return root;
 }
 
 function sync() {
@@ -590,7 +823,7 @@ function bindNewInteractions(root) {
     const current = selectedPrompt()?.category || 'Photography';
     const next = categories[(categories.indexOf(current) + 1) % categories.length];
     const nextPrompt = prompts.find(prompt => prompt.category === next && (prompt.sessionType || 'feedback') === 'feedback');
-    if (nextPrompt) { promptSelect.value = nextPrompt.id; renderPrompt(nextPrompt.id); sync(); }
+    if (nextPrompt) { feedbackContext = next; promptSelect.value = nextPrompt.id; renderPrompt(nextPrompt.id); sync(); }
   }, 'Change source type');
   makeClickable(selectors[0], () => promptSelect.showPicker?.() || promptSelect.click(), 'Choose a feedback prompt');
   makeClickable(firstNamed('action-bar', root), () => startFeedback(), 'Get feedback');
@@ -656,9 +889,31 @@ function bindRecordInteractions(root, detail) {
     if (label === 'feedback-new') link.addEventListener('click', event => { event.preventDefault(); startNew('feedback'); });
     if (label === 'compare-new') link.addEventListener('click', event => { event.preventDefault(); startNew('compare'); });
   });
-  const back = root.querySelector('[aria-label="darkroom"]');
-  if (back) back.setAttribute('aria-disabled', 'true');
+  const returnLabel = libraryReturnKind === 'design' ? 'design-studio' : libraryReturnKind === 'compare' ? 'compare-library' : 'darkroom';
+  const back = firstNamed('topbar', root)?.querySelector(`[aria-label="${returnLabel}"]`);
+  if (detail && back) makeClickable(back, () => mountLibrary(libraryReturnKind || (mode === 'compare' ? 'compare' : 'photography')));
   sync();
+}
+
+function bindNavigation(root) {
+  $$('a[href]', root).forEach(link => {
+    if (link.dataset.bound === 'true') return;
+    const label = link.getAttribute('aria-label');
+    if (['projects', 'prompts', 'settings-models'].includes(label)) {
+      link.dataset.bound = 'true';
+      link.addEventListener('click', event => event.preventDefault());
+      return;
+    }
+    let action;
+    if (label === 'feedback-new') action = () => startNew('feedback', 'Photography');
+    if (label === 'design-studio') action = () => mountLibrary('design');
+    if (label === 'darkroom') action = () => mountLibrary('photography');
+    if (label === 'compare-library') action = () => mountLibrary('compare');
+    if (label === 'compare-new') action = () => startNew('compare');
+    if (!action) return;
+    link.dataset.bound = 'true';
+    link.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); Promise.resolve(action()).catch(error => setError(error.message)); });
+  });
 }
 
 async function selectImage(file, slot = 'A') {
@@ -704,9 +959,10 @@ async function selectImage(file, slot = 'A') {
   }
 }
 
-function startNew(nextMode = mode) {
-  pending?.abort(); pending = null; session = null; chatRequest = null; visibleError = ''; chatError = ''; phase = 'new'; mode = nextMode;
-  populatePrompts();
+function startNew(nextMode = mode, context = nextMode === 'feedback' ? 'Photography' : null) {
+  pending?.abort(); pending = null; session = null; chatRequest = null; visibleError = ''; chatError = ''; phase = 'new'; mode = nextMode; libraryKind = null; libraryReturnKind = null;
+  if (nextMode === 'feedback' && context) feedbackContext = context;
+  populatePrompts(nextMode === 'feedback' && context ? '' : undefined);
   history.replaceState(null, '', '/');
   mountState(mode === 'compare' ? 'compareNew' : 'new');
 }
@@ -795,16 +1051,36 @@ async function mountState(nextPhase) {
   if (nextPhase === 'compareThinking') renderCompareThinking(root);
   if (nextPhase === 'compareComplete') renderCompareComplete(root, false);
   if (nextPhase === 'compareDetail') renderCompareComplete(root, true);
+  if (nextPhase === 'libraryPhotography') renderLibrary(root, 'photography');
+  if (nextPhase === 'libraryDesign') renderLibrary(root, 'design');
+  if (nextPhase === 'libraryCompare') renderLibrary(root, 'compare');
+  if (nextPhase === 'detailPhotography') renderComplete(root, true);
+  if (nextPhase === 'detailDesign') renderComplete(root, true);
+  if (nextPhase === 'compareLibraryDetail') renderCompareComplete(root, true);
   setModelBars(root); sync();
+  bindNavigation(root);
+  return root;
 }
 
 async function loadSessionFromQuery() {
-  const id = new URLSearchParams(location.search).get('session');
-  if (!id) return mountState('new');
+  const params = new URLSearchParams(location.search);
+  const id = params.get('session');
+  const view = params.get('view');
+  if (!id) {
+    if (view === 'darkroom-library') return mountLibrary('photography');
+    if (view === 'design-studio-library') return mountLibrary('design');
+    if (view === 'compare-library') return mountLibrary('compare');
+    return mountState('new');
+  }
   const data = await api(`/api/sessions/${encodeURIComponent(id)}`);
   session = data.session; mode = session.type === 'compare' ? 'compare' : 'feedback'; image = session.image; imageB = session.imageB || null; phase = 'detail';
+  libraryReturnKind = params.get('from') || (mode === 'compare' ? 'compare' : 'photography');
   populatePrompts(session.prompt?.id);
-  await mountState(mode === 'compare' ? 'compareDetail' : 'detail');
+  if (view === 'compare-library-detail') await mountState('compareLibraryDetail');
+  else if (view === 'darkroom-detail') await mountState('detailPhotography');
+  else if (view === 'design-studio-detail') await mountState('detailDesign');
+  else if (view === 'compare-detail' || mode === 'compare') await mountState('compareDetail');
+  else await mountState('detail');
 }
 
 async function refreshModels() {
@@ -823,4 +1099,5 @@ async function boot() {
   catch (error) { setError(`Director could not start: ${error.message}`); }
 }
 
+window.addEventListener('popstate', () => loadSessionFromQuery().catch(error => setError(`Director could not open that saved state: ${error.message}`)));
 await boot();
