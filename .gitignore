@@ -1,19 +1,5 @@
-
-# macOS
+node_modules
+dist
+app/data
 .DS_Store
-**/.DS_Store
-
-# Director runtime data
-.director-runtime/
-
-# Node
-node_modules/
-
-# Local environment
-.env
-.env.local
-.env.*.local
-
-# Generated output
-dist/
-coverage/
+.claude
