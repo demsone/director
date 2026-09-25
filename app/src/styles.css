@@ -223,6 +223,11 @@ img { display: block; }
 .dropzone.drag { border-color: var(--accent); }
 .dropzone-label { font: 400 16px/21.5px var(--font-primary); letter-spacing: 0.5px; color: var(--text-primary); }
 .dropzone-title { font: 500 26px/21.5px var(--font-primary); color: var(--text-primary); text-align: center; }
+.finder-link {
+  margin-top: 16px; font: 400 11px/19px var(--font-mono); letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-tertiary);
+}
+.finder-link:hover { color: var(--accent); }
+.compare-add .finder-link { margin-top: 2px; font-size: 10px; }
 .dropzone-error { position: absolute; bottom: 16px; left: 16px; right: 16px; text-align: center; font: 400 11px/19px var(--font-primary); color: var(--accent); }
 .dropzone img.source { width: 100%; height: 100%; object-fit: cover; }
 .dropzone .busy { font: 400 13px/21.5px var(--font-mono); color: var(--text-tertiary); letter-spacing: 0.5px; }

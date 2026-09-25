@@ -82,6 +82,11 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `);
 
+// Sources picked from Finder are linked by path rather than copied.
+if (!db.prepare("SELECT 1 FROM pragma_table_info('files') WHERE name = 'path'").get()) {
+  db.exec('ALTER TABLE files ADD COLUMN path TEXT');
+}
+
 export const now = () => new Date().toISOString();
 export const newId = () => crypto.randomUUID();
 
@@ -144,7 +149,7 @@ export function mapProject(r) {
 }
 
 export function mapFile(r) {
-  return { id: r.id, filename: r.filename, mime: r.mime, size: r.size, hasPreview: !!r.has_preview };
+  return { id: r.id, filename: r.filename, mime: r.mime, size: r.size, hasPreview: !!r.has_preview, path: r.path || null };
 }
 
 export function getRecord(id, { withMessages = true } = {}) {

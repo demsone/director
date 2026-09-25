@@ -20,6 +20,8 @@ export interface FileRef {
   mime: string;
   size: number;
   hasPreview: boolean;
+  /** Finder location when the source is linked rather than copied. */
+  path?: string | null;
 }
 
 export interface ChatMessage {
@@ -133,7 +135,7 @@ export const fileUrl = (f: FileRef | string, preview = true) => {
 async function makePreview(file: File): Promise<Blob | null> {
   try {
     const bitmap = await createImageBitmap(file);
-    const max = 1600;
+    const max = 2048;
     const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
     const w = Math.round(bitmap.width * scale);
     const h = Math.round(bitmap.height * scale);
@@ -144,25 +146,35 @@ async function makePreview(file: File): Promise<Blob | null> {
     if (!ctx) return null;
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close();
-    return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.88));
+    return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95));
   } catch {
     return null;
   }
 }
 
+/** Stores a browser-dropped image as a high-quality preview only; the original is not copied. */
 export async function uploadSource(file: File): Promise<FileRef> {
   if (!file.type.startsWith('image/')) throw new Error('Source could not be read. Use an image file.');
   const preview = await makePreview(file);
   if (!preview) throw new Error('Source could not be read.');
   const res = await fetch('/api/files', {
     method: 'POST',
-    headers: { 'Content-Type': file.type, 'x-filename': encodeURIComponent(file.name) },
-    body: file,
+    headers: {
+      'Content-Type': 'image/jpeg',
+      'x-filename': encodeURIComponent(file.name),
+      'x-original-type': encodeURIComponent(file.type),
+      'x-original-size': String(file.size),
+    },
+    body: preview,
   });
   const ref = await res.json();
   if (!res.ok) throw new Error(ref.error || 'Source could not be read.');
-  await fetch(`/api/files/${ref.id}/preview`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: preview });
-  return { ...ref, hasPreview: true };
+  return ref;
+}
+
+/** Opens the macOS file dialog; chosen images are linked in place, not copied. */
+export async function pickFromFinder(multiple: boolean): Promise<FileRef[]> {
+  return api.post<FileRef[]>('/api/files/pick', { multiple });
 }
 
 export interface StreamHandlers {

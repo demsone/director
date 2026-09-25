@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { uploadSource, fileUrl, type FileRef } from '../api';
+import { uploadSource, pickFromFinder, fileUrl, type FileRef } from '../api';
 import { Icon } from './Icon';
 
 export function useUploader(onFiles: (refs: FileRef[]) => void, max = 1) {
@@ -20,7 +20,33 @@ export function useUploader(onFiles: (refs: FileRef[]) => void, max = 1) {
       setBusy(false);
     }
   };
-  return { busy, error, setError, upload };
+  const finder = async (multiple: boolean) => {
+    setBusy(true);
+    setError('');
+    try {
+      const refs = (await pickFromFinder(multiple)).slice(0, max);
+      if (refs.length) onFiles(refs);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, error, setError, upload, finder };
+}
+
+/** Links originals in place (no copy). Sits inside drop targets, so it must not trigger their click. */
+function FinderLink({ onClick, label = 'or choose from Finder' }: { onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      className="finder-link"
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {label}
+    </button>
+  );
 }
 
 interface DropTargetProps {
@@ -71,7 +97,7 @@ export function DropTarget({ onFiles, multiple, disabled, className, children, l
 }
 
 export function SingleDropzone({ source, onSource, disabled }: { source: FileRef | null; onSource: (f: FileRef) => void; disabled?: boolean }) {
-  const { busy, error, upload } = useUploader((refs) => onSource(refs[0]), 1);
+  const { busy, error, upload, finder } = useUploader((refs) => onSource(refs[0]), 1);
   return (
     <DropTarget
       onFiles={upload}
@@ -90,6 +116,7 @@ export function SingleDropzone({ source, onSource, disabled }: { source: FileRef
             <>
               <span className="dropzone-label">Ask for feedback</span>
               <span className="dropzone-title">Drop a file here</span>
+              <FinderLink onClick={() => finder(false)} />
             </>
           )}
           {error && <span className="dropzone-error">{error}</span>}
@@ -100,7 +127,7 @@ export function SingleDropzone({ source, onSource, disabled }: { source: FileRef
 }
 
 export function MultiDropzone({ sources, onChange, disabled, max = 6 }: { sources: FileRef[]; onChange: (s: FileRef[]) => void; disabled?: boolean; max?: number }) {
-  const { busy, error, setError, upload } = useUploader((refs) => onChange([...sources, ...refs].slice(0, max)), max - sources.length);
+  const { busy, error, setError, upload, finder } = useUploader((refs) => onChange([...sources, ...refs].slice(0, max)), max - sources.length);
   const handle = (files: File[]) => {
     if (sources.length + files.length > max) setError('Maximum six sources.');
     upload(files);
@@ -115,6 +142,7 @@ export function MultiDropzone({ sources, onChange, disabled, max = 6 }: { source
               <>
                 <span className="dropzone-label">Ask for feedback</span>
                 <span className="dropzone-title">Drop a file here</span>
+                <FinderLink onClick={() => finder(true)} />
               </>
             )}
             {error && <span className="dropzone-error">{error}</span>}
@@ -144,6 +172,7 @@ export function MultiDropzone({ sources, onChange, disabled, max = 6 }: { source
               <span className={drag ? 'drag' : ''} style={{ display: 'contents' }}>
                 <Icon name="plus" size={14} />
                 <span>{busy ? 'Reading…' : sources.length < 2 ? 'Add at least one more source' : 'Add source'}</span>
+                {!busy && <FinderLink onClick={() => finder(true)} />}
               </span>
             )}
           </DropTarget>

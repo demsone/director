@@ -1,4 +1,6 @@
 import express from 'express';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -88,16 +90,66 @@ api.get('/storage', (req, res) => {
 // ---------- files ----------
 const rawBody = express.raw({ type: () => true, limit: '200mb' });
 
+// Browser uploads: only the high-quality preview is stored, never a full copy of the original.
 api.post('/files', rawBody, (req, res) => {
   if (!req.body || !req.body.length) return res.status(400).json({ error: 'Source could not be read.' });
   const id = newId();
   const filename = decodeURIComponent(String(req.get('x-filename') || 'source'));
-  const mime = req.get('content-type') || 'application/octet-stream';
-  fs.writeFileSync(path.join(FILES_DIR, id), req.body);
-  db.prepare('INSERT INTO files (id, filename, mime, size, has_preview, created_at) VALUES (?, ?, ?, ?, 0, ?)')
-    .run(id, filename, mime, req.body.length, now());
+  const mime = decodeURIComponent(String(req.get('x-original-type') || req.get('content-type') || 'image/jpeg'));
+  const size = Number(req.get('x-original-size')) || req.body.length;
+  fs.writeFileSync(path.join(FILES_DIR, `${id}.preview.jpg`), req.body);
+  db.prepare('INSERT INTO files (id, filename, mime, size, has_preview, created_at) VALUES (?, ?, ?, ?, 1, ?)')
+    .run(id, filename, mime, size, now());
   res.json(mapFile(db.prepare('SELECT * FROM files WHERE id = ?').get(id)));
 });
+
+const run = promisify(execFile);
+const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', heif: 'image/heif', tif: 'image/tiff', tiff: 'image/tiff', webp: 'image/webp', gif: 'image/gif' };
+
+/** Registers an image on disk by path (no copy) and renders its preview with macOS sips. */
+export async function linkFile(p) {
+  const stat = fs.statSync(p);
+  const id = newId();
+  const preview = path.join(FILES_DIR, `${id}.preview.jpg`);
+  const { stdout } = await run('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', p]);
+  const longest = Math.max(...[...stdout.matchAll(/pixel(?:Width|Height): (\d+)/g)].map((m) => Number(m[1])));
+  // Only ever shrink; small images are converted at their own size.
+  const resize = longest > 2048 ? ['-Z', '2048'] : [];
+  await run('sips', [...resize, '-s', 'format', 'jpeg', '-s', 'formatOptions', '95', p, '--out', preview]);
+  const ext = path.extname(p).slice(1).toLowerCase();
+  db.prepare('INSERT INTO files (id, filename, mime, size, has_preview, path, created_at) VALUES (?, ?, ?, ?, 1, ?, ?)')
+    .run(id, path.basename(p), MIME[ext] || 'image/' + (ext || 'jpeg'), stat.size, p, now());
+  return mapFile(db.prepare('SELECT * FROM files WHERE id = ?').get(id));
+}
+
+// Opens the native macOS file dialog and links the chosen images in place.
+api.post('/files/pick', wrap(async (req, res) => {
+  if (process.platform !== 'darwin') return res.status(400).json({ error: 'Choosing from Finder is only available on macOS.' });
+  const multiple = !!req.body?.multiple;
+  const script = [
+    'tell application (path to frontmost application as text)',
+    `set picked to choose file of type {"public.image"} with prompt "Choose ${multiple ? 'sources' : 'a source'} for Director"${multiple ? ' with multiple selections allowed' : ''}`,
+    'end tell',
+    'set out to ""',
+    multiple ? 'repeat with f in picked' : 'set f to picked',
+    'set out to out & POSIX path of f & linefeed',
+    multiple ? 'end repeat' : '',
+    'return out',
+  ].filter(Boolean).join('\n');
+  let stdout;
+  try {
+    ({ stdout } = await run('osascript', ['-e', script], { timeout: 10 * 60 * 1000 }));
+  } catch (e) {
+    if (/-128|User canceled/i.test(String(e.stderr || e.message))) return res.json([]);
+    return res.status(500).json({ error: 'Finder could not be opened.' });
+  }
+  const paths = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
+  const out = [];
+  for (const p of paths) {
+    try { out.push(await linkFile(p)); } catch { return res.status(400).json({ error: `Source could not be read: ${path.basename(p)}` }); }
+  }
+  res.json(out);
+}));
 
 api.post('/files/:id/preview', rawBody, (req, res) => {
   const row = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
@@ -110,9 +162,16 @@ api.post('/files/:id/preview', rawBody, (req, res) => {
 export function serveFile(req, res) {
   const row = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).end();
-  const preview = req.params.variant === 'preview' && row.has_preview;
-  const p = preview ? path.join(FILES_DIR, `${row.id}.preview.jpg`) : path.join(FILES_DIR, row.id);
-  res.setHeader('Content-Type', preview ? 'image/jpeg' : row.mime);
+  const previewPath = path.join(FILES_DIR, `${row.id}.preview.jpg`);
+  const copyPath = path.join(FILES_DIR, row.id);
+  // Originals: the linked file, else a legacy stored copy, else the preview.
+  let p = previewPath;
+  let type = 'image/jpeg';
+  if (req.params.variant !== 'preview') {
+    if (row.path && fs.existsSync(row.path)) { p = row.path; type = row.mime; }
+    else if (fs.existsSync(copyPath)) { p = copyPath; type = row.mime; }
+  } else if (!row.has_preview) { p = copyPath; type = row.mime; }
+  res.setHeader('Content-Type', type);
   res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
   fs.createReadStream(p).on('error', () => res.status(404).end()).pipe(res);
 }
