@@ -1,24 +1,31 @@
 # Director
 
-Local, model-agnostic workspace for photography and design critique.
+Local, model-agnostic workspace for photography and design critique. Available as a Mac app and as a web version; both show the same data.
 
 ## Open Director
 
-Double-click **`Director.command`** in this folder (or run `./command.launcher`).
+**Mac app:** open **Director** from Applications (or the Dock). Everything runs inside the app.
 
-- The first launch installs dependencies and builds the app, which takes about a minute.
-- Director opens in your browser at http://127.0.0.1:4747. Keep the launcher window open while you use it; close it to stop Director.
-- Opening it again while it is already running just opens the browser tab.
-- Requires Node.js 22.13 or newer, and LM Studio (or another OpenAI-compatible server) running locally for model features. Set the server URL and models in **Settings → Model**.
+**Web version:** double-click **`Director.command`** in this folder. It opens Director in your browser at http://127.0.0.1:4747. Keep the launcher window open while you use it; close it to stop. The first launch installs and builds, which takes about a minute.
+
+If one is already open, the other simply connects to it. Your feedback, comparisons, projects and prompts are shared.
+
+Requires LM Studio (or another OpenAI-compatible server) running locally for model features. Set the server URL and models in **Settings → Model**. The web version also needs Node.js 22.13 or newer.
 
 ## Where things live
 
-- `app/` — the application (React interface in `app/src`, local server in `app/server`).
-- `app/data/` — your database (`director.db`) and local copies of uploaded sources. Created on first run.
+- `app/` — the application: interface in `app/src`, local server in `app/server`, Mac app wrapper in `app/electron`.
+- `~/Library/Application Support/Director/` — your database and image previews, shared by both versions. Never committed.
 - `docs/`, `assets/` — product brief, design notes, fonts, icons and reference screenshots.
 
 ## Development
 
 ```bash
 cd app && npm run dev
+```
+
+Rebuild the Mac app (output in `app/release/`, then copy `Director.app` to Applications):
+
+```bash
+cd app && npm run package:mac
 ```

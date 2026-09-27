@@ -1,11 +1,14 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const DATA_DIR = process.env.DIRECTOR_DATA_DIR || path.resolve(here, '..', 'data');
+// One data location shared by the web version and the desktop app.
+export const DATA_DIR = process.env.DIRECTOR_DATA_DIR
+  || path.join(os.homedir(), 'Library', 'Application Support', 'Director');
 export const FILES_DIR = path.join(DATA_DIR, 'files');
 fs.mkdirSync(FILES_DIR, { recursive: true });
 
