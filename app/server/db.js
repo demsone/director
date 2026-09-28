@@ -94,9 +94,9 @@ export const now = () => new Date().toISOString();
 export const newId = () => crypto.randomUUID();
 
 export const DEFAULT_SETTINGS = {
-  feedbackModel: '',
-  compareModel: '',
-  visionModel: '',
+  feedbackModel: 'qwen3-vl-8b-instruct-mlx',
+  compareModel: 'qwen3-vl-8b-instruct-mlx',
+  visionModel: 'qwen3-vl-8b-instruct-mlx',
   endpoint: 'http://127.0.0.1:1234',
   tone: 'Professional',
   warmth: 'Neutral',
