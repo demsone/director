@@ -1,7 +1,7 @@
 {
   "name": "director",
   "private": true,
-  "version": "4.1.0",
+  "version": "4.2.0",
   "type": "module",
   "scripts": {
     "dev": "node server/index.js --dev",
@@ -9,7 +9,8 @@
     "start": "node server/index.js",
     "typecheck": "tsc --noEmit -p .",
     "desktop": "vite build && electron .",
-    "package:mac": "vite build && node electron/package.mjs"
+    "package:mac": "vite build && node electron/package.mjs",
+    "make:icon": "node electron/make-icon.mjs"
   },
   "dependencies": {
     "express": "^5.2.1"
